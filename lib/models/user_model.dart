@@ -1,6 +1,7 @@
 import 'dart:math';
 import '../payments/payment_config.dart';
 import 'history_entry.dart';
+import 'profile_comment.dart';
 
 /// Datenmodell eines Benutzers.
 ///
@@ -39,6 +40,9 @@ class UserModel {
   /// Verlauf der freigeschalteten Rechnungen (neueste zuerst).
   List<HistoryEntry> history;
 
+  /// Öffentliche Kommentare auf dem Profil (neueste zuerst).
+  List<ProfileComment> profileComments;
+
   /// Anzahl bezahlter Namensänderungen (für Achievements).
   int usernameChanges;
 
@@ -58,10 +62,12 @@ class UserModel {
     this.totalSpentMinor = 0,
     this.unlockedResultsCount = 0,
     List<HistoryEntry>? history,
+    List<ProfileComment>? profileComments,
     this.usernameChanges = 0,
     Map<String, int>? operatorCounts,
   })  : links = links ?? [],
         history = history ?? [],
+        profileComments = profileComments ?? [],
         operatorCounts = operatorCounts ?? {};
 
   /// Wie oft [op] in freigeschalteten Rechnungen genutzt wurde.
@@ -87,6 +93,7 @@ class UserModel {
         'totalSpentMinor': totalSpentMinor,
         'unlockedResultsCount': unlockedResultsCount,
         'history': history.map((e) => e.toJson()).toList(),
+        'profileComments': profileComments.map((e) => e.toJson()).toList(),
         'usernameChanges': usernameChanges,
         'operatorCounts': operatorCounts,
       };
@@ -110,6 +117,10 @@ class UserModel {
         unlockedResultsCount: json['unlockedResultsCount'] as int? ?? 0,
         history: (json['history'] as List?)
                 ?.map((e) => HistoryEntry.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        profileComments: (json['profileComments'] as List?)
+                ?.map((e) => ProfileComment.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],
         usernameChanges: json['usernameChanges'] as int? ?? 0,

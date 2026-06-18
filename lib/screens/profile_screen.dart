@@ -13,6 +13,7 @@ import '../widgets/payment_sheet.dart';
 import '../widgets/profile_showcase.dart';
 import '../widgets/user_avatar.dart';
 import 'login_screen.dart';
+import 'public_profile_screen.dart';
 
 /// Auswählbare Avatare (einfach, ohne Bild-Picker-Abhängigkeit).
 const List<String> _kAvatars = [
@@ -276,6 +277,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 20),
                           ProfileShowcase(user: user),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              final rank = context
+                                  .read<UserProvider>()
+                                  .leaderboardRankOf(user.id);
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => PublicProfileScreen(
+                                    user: user,
+                                    leaderboardRank: rank,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.visibility),
+                            label: const Text('VIEW PUBLIC PROFILE'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.gold,
+                              side: const BorderSide(color: AppTheme.goldDark),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 20),
 
                           // Rang nach ausgegebenem Geld

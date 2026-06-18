@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/history_entry.dart';
+import '../models/profile_comment.dart';
 import '../models/user_model.dart';
 
 /// Verwaltet Konten (Fake-Login), die aktuelle Sitzung und die Rangliste.
@@ -21,11 +22,23 @@ class UserProvider extends ChangeNotifier {
       _currentEmail != null && _accounts.containsKey(_currentEmail);
   UserModel? get currentUser => hasUser ? _accounts[_currentEmail]!.user : null;
 
+  UserModel? userById(String id) {
+    for (final account in _accounts.values) {
+      if (account.user.id == id) return account.user;
+    }
+    return null;
+  }
+
   /// Alle Benutzer, absteigend nach ausgegebenem echten Geld sortiert.
   List<UserModel> get leaderboard {
     final list = _accounts.values.map((a) => a.user).toList()
       ..sort((a, b) => b.totalSpentMinor.compareTo(a.totalSpentMinor));
     return List.unmodifiable(list);
+  }
+
+  int leaderboardRankOf(String userId) {
+    final index = leaderboard.indexWhere((user) => user.id == userId);
+    return index == -1 ? 0 : index + 1;
   }
 
   /// Lädt gespeicherte Konten und die letzte Sitzung beim Start.
@@ -165,6 +178,62 @@ class UserProvider extends ChangeNotifier {
     final user = currentUser;
     if (user == null) return;
     user.avatarPath = path;
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> addProfileComment({
+    required String targetUserId,
+    required String text,
+  }) async {
+    final author = currentUser;
+    final target = userById(targetUserId);
+    final trimmed = text.trim();
+    if (author == null || target == null || trimmed.isEmpty) return;
+
+    target.profileComments.insert(
+      0,
+      ProfileComment(
+        id: '${DateTime.now().microsecondsSinceEpoch}_${author.id}',
+        authorId: author.id,
+        authorName: author.username,
+        authorAvatar: author.avatar,
+        authorAvatarPath: author.avatarPath,
+        text: trimmed,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+    if (target.profileComments.length > 100) {
+      target.profileComments.removeRange(100, target.profileComments.length);
+    }
+
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> replyToProfileComment({
+    required String targetUserId,
+    required String commentId,
+    required String reply,
+  }) async {
+    final owner = currentUser;
+    final target = userById(targetUserId);
+    final trimmed = reply.trim();
+    if (owner == null ||
+        target == null ||
+        owner.id != target.id ||
+        trimmed.isEmpty) {
+      return;
+    }
+
+    for (final comment in target.profileComments) {
+      if (comment.id == commentId) {
+        comment.ownerReply = trimmed;
+        comment.ownerReplyTimestamp = DateTime.now().millisecondsSinceEpoch;
+        break;
+      }
+    }
+
     await _persist();
     notifyListeners();
   }

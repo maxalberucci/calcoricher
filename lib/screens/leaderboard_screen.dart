@@ -43,10 +43,7 @@ class LeaderboardScreen extends StatelessWidget {
                         ),
                         const Divider(color: AppTheme.divider),
                         if (leaderboard.length >= 2)
-                          _Podium(
-                            leaderboard: leaderboard,
-                            currentId: currentId,
-                          ),
+                          _Podium(leaderboard: leaderboard),
                         Expanded(
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(
@@ -77,9 +74,8 @@ class LeaderboardScreen extends StatelessWidget {
 // ---------------------------------------------------------------------------
 class _Podium extends StatelessWidget {
   final List<UserModel> leaderboard;
-  final String? currentId;
 
-  const _Podium({required this.leaderboard, required this.currentId});
+  const _Podium({required this.leaderboard});
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +94,6 @@ class _Podium extends StatelessWidget {
                 user: second,
                 rank: 2,
                 height: 74,
-                isCurrentUser: second.id == currentId,
               ),
             )
           else
@@ -108,7 +103,6 @@ class _Podium extends StatelessWidget {
               user: first,
               rank: 1,
               height: 104,
-              isCurrentUser: first.id == currentId,
             ),
           ),
           if (third != null)
@@ -117,7 +111,6 @@ class _Podium extends StatelessWidget {
                 user: third,
                 rank: 3,
                 height: 58,
-                isCurrentUser: third.id == currentId,
               ),
             )
           else
@@ -132,13 +125,11 @@ class _PodiumBlock extends StatelessWidget {
   final UserModel user;
   final int rank;
   final double height;
-  final bool isCurrentUser;
 
   const _PodiumBlock({
     required this.user,
     required this.rank,
     required this.height,
-    required this.isCurrentUser,
   });
 
   String get _medal => rank == 1
@@ -160,7 +151,6 @@ class _PodiumBlock extends StatelessWidget {
         context,
         user: user,
         rank: rank,
-        isCurrentUser: isCurrentUser,
       ),
       borderRadius: BorderRadius.circular(12),
       child: Column(
@@ -268,7 +258,6 @@ class _RankTile extends StatelessWidget {
           context,
           user: user,
           rank: rank,
-          isCurrentUser: isCurrentUser,
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         leading: SizedBox(
@@ -363,14 +352,12 @@ void _openPublicProfile(
   BuildContext context, {
   required UserModel user,
   required int rank,
-  required bool isCurrentUser,
 }) {
   Navigator.of(context).push(
     MaterialPageRoute(
       builder: (_) => PublicProfileScreen(
         user: user,
         leaderboardRank: rank,
-        isCurrentUser: isCurrentUser,
       ),
     ),
   );
