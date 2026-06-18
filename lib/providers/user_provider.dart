@@ -111,7 +111,8 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Aktualisiert Benutzername und/oder Avatar des aktuellen Benutzers.
+  /// Aktualisiert Benutzername und/oder Emoji-Avatar des aktuellen Benutzers.
+  /// Die Wahl eines Emojis entfernt ein zuvor gewähltes Foto.
   Future<void> updateProfile({String? username, String? avatar}) async {
     final user = currentUser;
     if (user == null) return;
@@ -119,8 +120,20 @@ class UserProvider extends ChangeNotifier {
     if (username != null && username.trim().isNotEmpty) {
       user.username = username.trim();
     }
-    if (avatar != null) user.avatar = avatar;
+    if (avatar != null) {
+      user.avatar = avatar;
+      user.avatarPath = null;
+    }
 
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Setzt ein selbst gewähltes Profilbild (Kamera/Galerie).
+  Future<void> updateProfilePhoto(String path) async {
+    final user = currentUser;
+    if (user == null) return;
+    user.avatarPath = path;
     await _persist();
     notifyListeners();
   }

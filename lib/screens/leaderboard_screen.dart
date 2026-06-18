@@ -5,6 +5,7 @@ import '../payments/payment_config.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/luxury_background.dart';
+import '../widgets/user_avatar.dart';
 
 class LeaderboardScreen extends StatelessWidget {
   const LeaderboardScreen({super.key});
@@ -127,7 +128,11 @@ class _PodiumBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(user.avatar, style: const TextStyle(fontSize: 26)),
+        UserAvatar(
+          emoji: user.avatar,
+          imagePath: user.avatarPath,
+          size: 34,
+        ),
         Text(_medal, style: const TextStyle(fontSize: 20)),
         const SizedBox(height: 2),
         Text(
@@ -243,7 +248,11 @@ class _RankTile extends StatelessWidget {
         ),
         title: Row(
           children: [
-            Text(user.avatar, style: const TextStyle(fontSize: 18)),
+            UserAvatar(
+              emoji: user.avatar,
+              imagePath: user.avatarPath,
+              size: 28,
+            ),
             const SizedBox(width: 8),
             Flexible(
               child: Text(

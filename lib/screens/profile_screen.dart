@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../payments/payment_config.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/luxury_background.dart';
+import '../widgets/user_avatar.dart';
 import 'login_screen.dart';
 
 /// Auswählbare Avatare (einfach, ohne Bild-Picker-Abhängigkeit).
@@ -51,6 +54,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _pickAvatar(String avatar) async {
     await context.read<UserProvider>().updateProfile(avatar: avatar);
+  }
+
+  /// Nimmt ein Foto auf bzw. wählt eines aus der Galerie, speichert es dauerhaft
+  /// im App-Verzeichnis und setzt es als Profilbild.
+  Future<void> _pickImage(ImageSource source) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final userProv = context.read<UserProvider>();
+    final user = userProv.currentUser;
+    if (user == null) return;
+
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+
+      // In ein stabiles Verzeichnis kopieren (Original-Pfad ist oft temporär).
+      final dir = await getApplicationDocumentsDirectory();
+      final dest =
+          '${dir.path}/avatar_${user.id}_${DateTime.now().millisecondsSinceEpoch}.png';
+      await picked.saveTo(dest);
+
+      await userProv.updateProfilePhoto(dest);
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            source == ImageSource.camera
+                ? 'Camera is not available on this device.'
+                : 'Could not load the image.',
+          ),
+          backgroundColor: const Color(0xFFE05A5A),
+        ),
+      );
+    }
   }
 
   Future<void> _logout() async {
@@ -116,7 +157,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         children: [
                           const SizedBox(height: 8),
-                          _AvatarCircle(avatar: user.avatar),
+                          UserAvatar(
+                            emoji: user.avatar,
+                            imagePath: user.avatarPath,
+                            size: 110,
+                            bordered: true,
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _PhotoButton(
+                                icon: Icons.photo_camera,
+                                label: 'Camera',
+                                onTap: () => _pickImage(ImageSource.camera),
+                              ),
+                              const SizedBox(width: 12),
+                              _PhotoButton(
+                                icon: Icons.photo_library,
+                                label: 'Gallery',
+                                onTap: () => _pickImage(ImageSource.gallery),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 16),
                           Text(
                             user.username,
@@ -240,22 +303,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _AvatarCircle extends StatelessWidget {
-  final String avatar;
-  const _AvatarCircle({required this.avatar});
+class _PhotoButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _PhotoButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 110,
-      height: 110,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppTheme.cardHigh,
-        border: Border.all(color: AppTheme.gold, width: 2),
-        boxShadow: AppTheme.goldGlow(opacity: 0.3, blur: 24),
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppTheme.gold,
+        side: const BorderSide(color: AppTheme.goldDark),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
-      child: Center(child: Text(avatar, style: const TextStyle(fontSize: 52))),
     );
   }
 }

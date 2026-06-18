@@ -11,7 +11,12 @@ class UserModel {
   final String id;
   String username;
   String email;
+
+  /// Emoji-Avatar (Fallback, wenn kein Foto gewählt ist).
   String avatar;
+
+  /// Pfad zu einem selbst gewählten Profilbild (Kamera/Galerie). null = Emoji.
+  String? avatarPath;
 
   /// Insgesamt mit echtem Geld ausgegebener Betrag in Minor-Units (Cent).
   int totalSpentMinor;
@@ -27,6 +32,7 @@ class UserModel {
     required this.username,
     required this.email,
     this.avatar = '👑',
+    this.avatarPath,
     this.totalSpentMinor = 0,
     this.unlockedResultsCount = 0,
     List<HistoryEntry>? history,
@@ -44,6 +50,7 @@ class UserModel {
         'username': username,
         'email': email,
         'avatar': avatar,
+        'avatarPath': avatarPath,
         'totalSpentMinor': totalSpentMinor,
         'unlockedResultsCount': unlockedResultsCount,
         'history': history.map((e) => e.toJson()).toList(),
@@ -54,6 +61,7 @@ class UserModel {
         username: json['username'] as String? ?? json['name'] as String? ?? '',
         email: json['email'] as String? ?? '',
         avatar: json['avatar'] as String? ?? '👑',
+        avatarPath: json['avatarPath'] as String?,
         totalSpentMinor: json['totalSpentMinor'] as int? ?? 0,
         unlockedResultsCount: json['unlockedResultsCount'] as int? ?? 0,
         history: (json['history'] as List?)
