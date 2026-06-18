@@ -87,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen>
                   const SizedBox(height: 24),
                   // App name
                   const Text(
-                    'DER REICHEN-\nRECHNER',
+                    'CALCORICHER',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppTheme.gold,
@@ -107,7 +107,7 @@ class _SplashScreenState extends State<SplashScreen>
                   const SizedBox(height: 16),
                   // Tagline
                   const Text(
-                    'Willkommen im teuersten Rechner der Welt',
+                    "Welcome to the world's most expensive calculator",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppTheme.textSecondary,
@@ -118,7 +118,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Rechnen ist für Arme.\nZahlen ist für Reiche.',
+                    'Calculating is for the poor.\nPaying is for the rich.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppTheme.goldDark,

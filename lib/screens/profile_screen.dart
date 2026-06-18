@@ -43,7 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Gespeichert, ${_controller.text.trim()}! 👑'),
+        content: Text('Saved, ${_controller.text.trim()}! 👑'),
         backgroundColor: AppTheme.goldDark,
       ),
     );
@@ -58,20 +58,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardHigh,
-        title: const Text('Abmelden?',
+        title: const Text('Sign out?',
             style: TextStyle(color: AppTheme.gold)),
         content: const Text(
-          'Deine Coins bleiben gespeichert und warten auf deine Rückkehr.',
+          'Your spending and history stay saved and await your return.',
           style: TextStyle(color: AppTheme.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Abbrechen'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Abmelden',
+            child: const Text('Sign out',
                 style: TextStyle(color: Color(0xFFE05A5A))),
           ),
         ],
@@ -95,11 +95,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('MEIN PROFIL'),
+        title: const Text('MY PROFILE'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: AppTheme.gold),
-            tooltip: 'Abmelden',
+            tooltip: 'Sign out',
             onPressed: _logout,
           ),
         ],
@@ -141,7 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               Expanded(
                                 child: _StatCard(
-                                    label: 'Ausgegeben',
+                                    label: 'Spent',
                                     value: PaymentConfig.format(
                                         user.totalSpentMinor),
                                     icon: '💸'),
@@ -149,7 +149,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _StatCard(
-                                    label: 'Resultate',
+                                    label: 'Results',
                                     value: '${user.unlockedResultsCount}',
                                     icon: '🔓'),
                               ),
@@ -162,7 +162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 28),
 
                           // Avatar-Auswahl
-                          const _SectionLabel('AVATAR WÄHLEN'),
+                          const _SectionLabel('CHOOSE AVATAR'),
                           const SizedBox(height: 10),
                           _AvatarPicker(
                             selected: user.avatar,
@@ -171,7 +171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 24),
 
                           // Name bearbeiten
-                          const _SectionLabel('BENUTZERNAME'),
+                          const _SectionLabel('USERNAME'),
                           const SizedBox(height: 8),
                           Form(
                             key: _formKey,
@@ -184,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       color: AppTheme.textPrimary,
                                       fontSize: 18),
                                   decoration: const InputDecoration(
-                                    hintText: 'Dein Name',
+                                    hintText: 'Your name',
                                     prefixIcon: Icon(Icons.person,
                                         color: AppTheme.gold),
                                   ),
@@ -192,7 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       TextCapitalization.words,
                                   validator: (v) {
                                     if (v == null || v.trim().length < 2) {
-                                      return 'Mindestens 2 Zeichen.';
+                                      return 'At least 2 characters.';
                                     }
                                     return null;
                                   },
@@ -209,7 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             color: Colors.black,
                                           ),
                                         )
-                                      : const Text('SPEICHERN'),
+                                      : const Text('SAVE'),
                                 ),
                               ],
                             ),
@@ -218,7 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           OutlinedButton.icon(
                             onPressed: _logout,
                             icon: const Icon(Icons.logout, size: 18),
-                            label: const Text('ABMELDEN'),
+                            label: const Text('SIGN OUT'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFFE05A5A),
                               side: const BorderSide(color: Color(0xFFE05A5A)),
@@ -318,7 +318,7 @@ class _NextPriceCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Preis für das nächste Resultat',
+                  'Price for the next result',
                   style: TextStyle(
                       color: AppTheme.textSecondary, fontSize: 12),
                 ),

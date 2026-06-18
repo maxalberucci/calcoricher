@@ -51,8 +51,8 @@ class _PaymentSheetState extends State<_PaymentSheet> {
     setState(() {
       _processing = false;
       _error = result.status == PaymentStatus.cancelled
-          ? 'Zahlung abgebrochen.'
-          : (result.message ?? 'Zahlung fehlgeschlagen.');
+          ? 'Payment cancelled.'
+          : (result.message ?? 'Payment failed.');
     });
   }
 
@@ -95,7 +95,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           ),
           const SizedBox(height: 18),
           const Text(
-            'RESULTAT FREISCHALTEN',
+            'UNLOCK RESULT',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: AppTheme.textSecondary,
@@ -116,7 +116,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           ),
           const SizedBox(height: 4),
           Text(
-            'für „${widget.description}"',
+            'for "${widget.description}"',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: AppTheme.textSecondary,
@@ -180,7 +180,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.black),
                   )
-                : Text('${PaymentConfig.format(widget.amountMinor)} BEZAHLEN'),
+                : Text('PAY ${PaymentConfig.format(widget.amountMinor)}'),
           ),
 
           // Optionale Krypto-Zahlung.
@@ -189,7 +189,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
             OutlinedButton.icon(
               onPressed: _processing ? null : () => _run(cryptoFuture),
               icon: const Icon(Icons.currency_bitcoin, size: 18),
-              label: const Text('MIT KRYPTO BEZAHLEN'),
+              label: const Text('PAY WITH CRYPTO'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.gold,
                 side: const BorderSide(color: AppTheme.goldDark),
@@ -204,13 +204,13 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           const SizedBox(height: 8),
           if (PaymentConfig.sandbox)
             const Text(
-              '🧪 Sandbox-Modus – es wird KEIN echtes Geld belastet',
+              '🧪 Sandbox mode – no real money is charged',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
             ),
           TextButton(
             onPressed: _processing ? null : () => Navigator.of(context).pop(false),
-            child: const Text('Abbrechen'),
+            child: const Text('Cancel'),
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -218,7 +218,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
               const Icon(Icons.lock, size: 12, color: AppTheme.textSecondary),
               const SizedBox(width: 4),
               Text(
-                'Sicher bezahlen mit Stripe',
+                'Secure payment with Stripe',
                 style: TextStyle(
                   color: AppTheme.textSecondary.withValues(alpha: 0.8),
                   fontSize: 11,

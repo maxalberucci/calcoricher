@@ -66,7 +66,7 @@ class StripeCheckoutService implements PaymentService {
       );
       if (createRes.statusCode != 200) {
         return PaymentResult(
-            PaymentStatus.failed, 'Server-Fehler (${createRes.statusCode}).');
+            PaymentStatus.failed, 'Server error (${createRes.statusCode}).');
       }
       final data = jsonDecode(createRes.body) as Map<String, dynamic>;
       final sessionId = data['id'] as String;
@@ -79,13 +79,13 @@ class StripeCheckoutService implements PaymentService {
       );
       if (!launched) {
         return const PaymentResult(
-            PaymentStatus.failed, 'Checkout konnte nicht geöffnet werden.');
+            PaymentStatus.failed, 'Could not open checkout.');
       }
 
       // 3) Bezahlstatus pollen (max. ~3 Minuten).
       return _pollStatus(sessionId);
     } catch (e) {
-      return PaymentResult(PaymentStatus.failed, 'Netzwerkfehler: $e');
+      return PaymentResult(PaymentStatus.failed, 'Network error: $e');
     }
   }
 
@@ -107,7 +107,7 @@ class StripeCheckoutService implements PaymentService {
       }
     }
     return const PaymentResult(
-        PaymentStatus.failed, 'Zeitüberschreitung bei der Bestätigung.');
+        PaymentStatus.failed, 'Timed out waiting for confirmation.');
   }
 
   @override
@@ -128,9 +128,9 @@ class StripeCheckoutService implements PaymentService {
     // sicher verifizieren – hier müsste in Produktion ein Webhook greifen.
     return ok
         ? const PaymentResult(PaymentStatus.failed,
-            'Krypto-Zahlung wird per Webhook bestätigt.')
+            'Crypto payment is confirmed via webhook.')
         : const PaymentResult(
-            PaymentStatus.failed, 'Krypto-Checkout konnte nicht öffnen.');
+            PaymentStatus.failed, 'Could not open crypto checkout.');
   }
 }
 

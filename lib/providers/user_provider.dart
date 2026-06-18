@@ -60,17 +60,17 @@ class UserProvider extends ChangeNotifier {
     final mail = email.trim().toLowerCase();
 
     if (name.isEmpty || mail.isEmpty || password.isEmpty) {
-      return 'Bitte fülle alle Felder aus.';
+      return 'Please fill in all fields.';
     }
-    if (name.length < 2) return 'Der Name braucht mindestens 2 Zeichen.';
+    if (name.length < 2) return 'The name needs at least 2 characters.';
     if (!mail.contains('@') || !mail.contains('.')) {
-      return 'Bitte gib eine gültige E-Mail ein.';
+      return 'Please enter a valid email.';
     }
     if (password.length < 4) {
-      return 'Das Passwort braucht mindestens 4 Zeichen.';
+      return 'The password needs at least 4 characters.';
     }
     if (_accounts.containsKey(mail)) {
-      return 'Diese E-Mail ist bereits registriert.';
+      return 'This email is already registered.';
     }
 
     final user = UserModel(
@@ -95,8 +95,8 @@ class UserProvider extends ChangeNotifier {
     final mail = email.trim().toLowerCase();
     final account = _accounts[mail];
 
-    if (account == null) return 'Kein Konto mit dieser E-Mail gefunden.';
-    if (account.password != password) return 'Falsches Passwort.';
+    if (account == null) return 'No account found with this email.';
+    if (account.password != password) return 'Wrong password.';
 
     _currentEmail = mail;
     await _persist();

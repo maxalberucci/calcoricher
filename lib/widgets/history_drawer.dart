@@ -32,7 +32,7 @@ class HistoryDrawer extends StatelessWidget {
                   const Icon(Icons.history, color: AppTheme.gold, size: 20),
                   const SizedBox(width: 8),
                   const Text(
-                    'VERLAUF',
+                    'HISTORY',
                     style: TextStyle(
                       color: AppTheme.gold,
                       fontSize: 14,
@@ -45,7 +45,7 @@ class HistoryDrawer extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.delete_outline,
                           color: Color(0xFFE05A5A)),
-                      tooltip: 'Verlauf löschen',
+                      tooltip: 'Clear history',
                       onPressed: () => userProv.clearHistory(),
                     ),
                 ],
@@ -153,7 +153,7 @@ class _EmptyHistory extends StatelessWidget {
             const Text('🧾', style: TextStyle(fontSize: 44)),
             const SizedBox(height: 12),
             const Text(
-              'Noch kein Verlauf',
+              'No history yet',
               style: TextStyle(
                 color: AppTheme.gold,
                 fontSize: 16,
@@ -162,7 +162,7 @@ class _EmptyHistory extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Freigeschaltete Resultate erscheinen hier — tippe sie an, um weiterzurechnen.',
+              'Unlocked results appear here — tap one to keep calculating.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),

@@ -40,17 +40,17 @@ class _HomeShellState extends State<HomeShell> {
             BottomNavigationBarItem(
               icon: Icon(Icons.calculate_outlined),
               activeIcon: Icon(Icons.calculate),
-              label: 'Rechner',
+              label: 'Calculator',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.leaderboard_outlined),
               activeIcon: Icon(Icons.leaderboard),
-              label: 'Rangliste',
+              label: 'Leaderboard',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
               activeIcon: Icon(Icons.person),
-              label: 'Profil',
+              label: 'Profile',
             ),
           ],
         ),

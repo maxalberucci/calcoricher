@@ -83,7 +83,7 @@ class _LockedResultState extends State<LockedResult>
                 Icon(Icons.lock_rounded, color: AppTheme.gold, size: 18),
                 SizedBox(width: 8),
                 Text(
-                  'GESPERRT',
+                  'LOCKED',
                   style: TextStyle(
                     color: AppTheme.gold,
                     fontWeight: FontWeight.bold,

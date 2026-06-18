@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:rich_calculator/main.dart';
-import 'package:rich_calculator/models/user_model.dart';
-import 'package:rich_calculator/payments/payment_config.dart';
-import 'package:rich_calculator/providers/user_provider.dart';
+import 'package:calcoricher/main.dart';
+import 'package:calcoricher/models/user_model.dart';
+import 'package:calcoricher/payments/payment_config.dart';
+import 'package:calcoricher/providers/user_provider.dart';
 
 void main() {
   test('Preis verdoppelt sich pro freigeschaltetem Resultat', () {
@@ -74,14 +74,14 @@ void main() {
     expect(wrong, isNotNull);
   });
 
-  testWidgets('App zeigt den Splash und routet zum Login', (tester) async {
+  testWidgets('App shows the splash and routes to login', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const RichCalculatorApp());
     await tester.pump();
-    expect(find.text('DER REICHEN-\nRECHNER'), findsOneWidget);
+    expect(find.text('CALCORICHER'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
-    expect(find.text('ANMELDEN'), findsOneWidget);
+    expect(find.text('SIGN IN'), findsOneWidget);
   });
 }

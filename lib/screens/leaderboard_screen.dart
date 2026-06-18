@@ -17,7 +17,7 @@ class LeaderboardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
-      appBar: AppBar(title: const Text('RANGLISTE DER REICHEN')),
+      appBar: AppBar(title: const Text('LEADERBOARD OF THE RICH')),
       body: LuxuryBackground(
         child: SafeArea(
           child: Center(
@@ -30,7 +30,7 @@ class LeaderboardScreen extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                           child: Text(
-                            'Die Mutigsten zahlen am meisten.\nSind es auch die Klügsten? 🤔',
+                            'The bravest pay the most.\nAre they also the smartest? 🤔',
                             textAlign: TextAlign.center,
                             style: Theme.of(context)
                                 .textTheme
@@ -170,7 +170,7 @@ class _PodiumBlock extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'ausgegeben',
+                  'spent',
                   style: TextStyle(
                       color: _color.withValues(alpha: 0.8), fontSize: 9),
                 ),
@@ -266,7 +266,7 @@ class _RankTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(
-                  'DU',
+                  'YOU',
                   style: TextStyle(
                     color: AppTheme.gold,
                     fontSize: 9,
@@ -279,7 +279,7 @@ class _RankTile extends StatelessWidget {
           ],
         ),
         subtitle: Text(
-          '${user.unlockedResultsCount} Resultate freigeschaltet',
+          '${user.unlockedResultsCount} results unlocked',
           style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
         ),
         trailing: Column(
@@ -298,7 +298,7 @@ class _RankTile extends StatelessWidget {
               ),
             ),
             const Text(
-              'ausgegeben',
+              'spent',
               style: TextStyle(color: AppTheme.textSecondary, fontSize: 9),
             ),
           ],
@@ -325,7 +325,7 @@ class _EmptyState extends StatelessWidget {
             const Text('💰', style: TextStyle(fontSize: 60)),
             const SizedBox(height: 16),
             const Text(
-              'Noch keine Reichen hier',
+              'No rich people here yet',
               style: TextStyle(
                 color: AppTheme.gold,
                 fontSize: 20,
@@ -334,7 +334,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Schalte ein paar Resultate frei, um auf der Rangliste zu erscheinen.',
+              'Unlock a few results to appear on the leaderboard.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),

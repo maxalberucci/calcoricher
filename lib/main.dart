@@ -27,7 +27,7 @@ class RichCalculatorApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CalculatorProvider()),
       ],
       child: MaterialApp(
-        title: 'Der Reichen-Rechner',
+        title: 'Calcoricher',
         theme: AppTheme.darkGoldTheme,
         home: const SplashScreen(),
         debugShowCheckedModeBanner: false,

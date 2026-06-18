@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           textAlign: TextAlign.center),
                       const SizedBox(height: 16),
                       const Text(
-                        'DER REICHEN-RECHNER',
+                        'CALCORICHER',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: AppTheme.gold,
@@ -97,8 +97,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 6),
                       Text(
                         _isRegister
-                            ? 'Erstelle dein Konto für Reiche'
-                            : 'Willkommen zurück, edle Person',
+                            ? 'Create your account for the rich'
+                            : 'Welcome back, noble one',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: AppTheme.textSecondary,
@@ -115,14 +115,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           textCapitalization: TextCapitalization.words,
                           style: const TextStyle(color: AppTheme.textPrimary),
                           decoration: const InputDecoration(
-                            labelText: 'Benutzername',
+                            labelText: 'Username',
                             prefixIcon:
                                 Icon(Icons.person, color: AppTheme.gold),
                           ),
                           validator: (v) {
                             if (!_isRegister) return null;
                             if (v == null || v.trim().length < 2) {
-                              return 'Mindestens 2 Zeichen.';
+                              return 'At least 2 characters.';
                             }
                             return null;
                           },
@@ -137,15 +137,15 @@ class _LoginScreenState extends State<LoginScreen> {
                         autocorrect: false,
                         style: const TextStyle(color: AppTheme.textPrimary),
                         decoration: const InputDecoration(
-                          labelText: 'E-Mail',
+                          labelText: 'Email',
                           prefixIcon: Icon(Icons.email, color: AppTheme.gold),
                         ),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return 'Bitte E-Mail eingeben.';
+                            return 'Please enter your email.';
                           }
                           if (!v.contains('@') || !v.contains('.')) {
-                            return 'Ungültige E-Mail.';
+                            return 'Invalid email.';
                           }
                           return null;
                         },
@@ -158,7 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         obscureText: _obscure,
                         style: const TextStyle(color: AppTheme.textPrimary),
                         decoration: InputDecoration(
-                          labelText: 'Passwort',
+                          labelText: 'Password',
                           prefixIcon:
                               const Icon(Icons.lock, color: AppTheme.gold),
                           suffixIcon: IconButton(
@@ -174,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         validator: (v) {
                           if (v == null || v.length < 4) {
-                            return 'Mindestens 4 Zeichen.';
+                            return 'At least 4 characters.';
                           }
                           return null;
                         },
@@ -192,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: Colors.black,
                                 ),
                               )
-                            : Text(_isRegister ? 'KONTO ERSTELLEN' : 'ANMELDEN'),
+                            : Text(_isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'),
                       ),
                       const SizedBox(height: 12),
 
@@ -202,8 +202,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             : () => setState(() => _isRegister = !_isRegister),
                         child: Text(
                           _isRegister
-                              ? 'Schon ein Konto? Jetzt anmelden'
-                              : 'Noch kein Konto? Jetzt registrieren',
+                              ? 'Already have an account? Sign in'
+                              : 'No account yet? Register now',
                         ),
                       ),
                     ],

@@ -37,11 +37,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         },
       ),
       appBar: AppBar(
-        title: const Text('DER REICHEN-RECHNER'),
+        title: const Text('CALCORICHER'),
         leading: user != null
             ? IconButton(
                 icon: const Icon(Icons.history),
-                tooltip: 'Verlauf',
+                tooltip: 'History',
                 onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
               )
             : null,
@@ -65,7 +65,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     child: Text(
-                      'Rechnen ist für Arme, Zahlen ist für Reiche',
+                      'Calculating is for the poor, paying is for the rich',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontStyle: FontStyle.italic,
                             letterSpacing: 0.5,
@@ -166,7 +166,7 @@ class _ResultLine extends StatelessWidget {
     // umschließende FittedBox in _DisplayPanel — hier nur intrinsische Widgets.
     if (calc.state == CalcState.error) {
       return const Text(
-        'Ungültige Rechnung',
+        'Invalid calculation',
         style: TextStyle(color: Color(0xFFE05A5A), fontSize: 22),
       );
     }
@@ -211,7 +211,7 @@ class _CostBar extends StatelessWidget {
               style: const TextStyle(
                   fontSize: 13, color: AppTheme.textSecondary),
               children: [
-                const TextSpan(text: 'Dieses Resultat kostet dich nur '),
+                const TextSpan(text: 'This result costs you only '),
                 TextSpan(
                   text: PaymentConfig.format(priceMinor),
                   style: const TextStyle(
@@ -237,8 +237,8 @@ class _CostBar extends StatelessWidget {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   revealed
-                      ? 'RESULTAT FREIGESCHALTET'
-                      : 'FREISCHALTEN  (${PaymentConfig.format(priceMinor)})',
+                      ? 'RESULT UNLOCKED'
+                      : 'UNLOCK  (${PaymentConfig.format(priceMinor)})',
                 ),
               ),
               style: ElevatedButton.styleFrom(
@@ -341,7 +341,7 @@ class _NoUserHint extends StatelessWidget {
           const SizedBox(width: 8),
           Flexible(
             child: Text(
-              'Bitte melde dich an, um Resultate freizuschalten',
+              'Please sign in to unlock results',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
