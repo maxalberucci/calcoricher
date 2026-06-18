@@ -27,6 +27,12 @@ class UserModel {
   /// Verlauf der freigeschalteten Rechnungen (neueste zuerst).
   List<HistoryEntry> history;
 
+  /// Anzahl bezahlter Namensänderungen (für Achievements).
+  int usernameChanges;
+
+  /// Wie oft ein Operator in freigeschalteten Rechnungen vorkam ('+','-','*','/').
+  Map<String, int> operatorCounts;
+
   UserModel({
     required this.id,
     required this.username,
@@ -36,7 +42,13 @@ class UserModel {
     this.totalSpentMinor = 0,
     this.unlockedResultsCount = 0,
     List<HistoryEntry>? history,
-  }) : history = history ?? [];
+    this.usernameChanges = 0,
+    Map<String, int>? operatorCounts,
+  })  : history = history ?? [],
+        operatorCounts = operatorCounts ?? {};
+
+  /// Wie oft [op] in freigeschalteten Rechnungen genutzt wurde.
+  int operatorCount(String op) => operatorCounts[op] ?? 0;
 
   /// Preis-Multiplikator für das nächste Resultat: 1, 2, 4, 8, 16 …
   int get currentPriceMultiplier => pow(2, unlockedResultsCount).toInt();
@@ -54,6 +66,8 @@ class UserModel {
         'totalSpentMinor': totalSpentMinor,
         'unlockedResultsCount': unlockedResultsCount,
         'history': history.map((e) => e.toJson()).toList(),
+        'usernameChanges': usernameChanges,
+        'operatorCounts': operatorCounts,
       };
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -68,5 +82,9 @@ class UserModel {
                 ?.map((e) => HistoryEntry.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],
+        usernameChanges: json['usernameChanges'] as int? ?? 0,
+        operatorCounts: (json['operatorCounts'] as Map?)
+                ?.map((k, v) => MapEntry(k as String, v as int)) ??
+            {},
       );
 }

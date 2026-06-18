@@ -28,6 +28,10 @@ class PaymentConfig {
   /// Das erste Resultat kostet diesen Betrag, danach verdoppelt er sich.
   static const int basePriceMinor = 100;
 
+  /// Preis für eine Änderung des Benutzernamens in Minor-Units.
+  /// 100000 = 1000.00 (Eitelkeit ist teuer).
+  static const int usernameChangePriceMinor = 100000;
+
   // -------------------------------------------------------------------------
 
   /// Formatiert Minor-Units als lesbaren Preis, z. B. 250 -> "CHF 2.50".

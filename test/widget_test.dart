@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:calcoricher/gamification/achievements.dart';
+import 'package:calcoricher/gamification/ranks.dart';
 import 'package:calcoricher/main.dart';
 import 'package:calcoricher/models/user_model.dart';
 import 'package:calcoricher/payments/payment_config.dart';
@@ -61,6 +63,15 @@ void main() {
     await provider.clearHistory();
     expect(provider.currentUser?.history, isEmpty);
 
+    // Namensänderung kostet Geld (zählt zum ausgegebenen Betrag, nicht zum
+    // Resultat-Zähler).
+    final spentBefore = provider.currentUser!.totalSpentMinor;
+    final unlockedBefore = provider.currentUser!.unlockedResultsCount;
+    await provider.changeUsername('Crassus', 100000);
+    expect(provider.currentUser?.username, 'Crassus');
+    expect(provider.currentUser?.totalSpentMinor, spentBefore + 100000);
+    expect(provider.currentUser?.unlockedResultsCount, unlockedBefore);
+
     await provider.logout();
     expect(provider.hasUser, isFalse);
 
@@ -72,6 +83,31 @@ void main() {
     final wrong =
         await provider.login(email: 'max@reich.de', password: 'falsch');
     expect(wrong, isNotNull);
+  });
+
+  test('Rang richtet sich nach ausgegebenem Geld', () {
+    expect(rankForSpent(0).name, 'Pauper');
+    expect(rankForSpent(10000).name, 'Patron'); //   100.00
+    expect(rankForSpent(100000).name, 'Magnate'); // 1000.00
+    expect(rankForSpent(999999999).name, 'Croesus');
+    expect(rankProgress(999999999), 1.0); // Maximalrang
+  });
+
+  test('Achievements schalten anhand des Zustands frei', () {
+    final user = UserModel(id: '1', username: 'Test', email: 't@t.de');
+    expect(unlockedCount(user), 0);
+
+    user.unlockedResultsCount = 1;
+    user.usernameChanges = 1;
+    user.avatarPath = '/some/path.png';
+    user.operatorCounts['+'] = 10;
+
+    final ids = kAchievements
+        .where((a) => a.isUnlocked(user))
+        .map((a) => a.id)
+        .toSet();
+    expect(ids.containsAll({'first', 'rename', 'photo', 'plus'}), isTrue);
+    expect(ids.contains('hundred'), isFalse);
   });
 
   testWidgets('App shows the splash and routes to login', (tester) async {

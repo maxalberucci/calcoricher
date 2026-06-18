@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import '../gamification/achievements.dart';
+import '../gamification/ranks.dart';
+import '../models/user_model.dart';
 import '../payments/payment_config.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/luxury_background.dart';
+import '../widgets/payment_sheet.dart';
 import '../widgets/user_avatar.dart';
 import 'login_screen.dart';
 
@@ -40,13 +44,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final userProv = context.read<UserProvider>();
+    final user = userProv.currentUser;
+    if (user == null) return;
+
+    final newName = _controller.text.trim();
+    if (newName == user.username) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('That is already your name.')),
+      );
+      return;
+    }
+
+    // Namensänderung kostet echtes Geld.
+    const price = PaymentConfig.usernameChangePriceMinor;
+    final paid = await showPaymentSheet(
+      context,
+      amountMinor: price,
+      description: 'Rename to "$newName"',
+    );
+    if (!mounted || !paid) return;
+
     setState(() => _saving = true);
-    await context.read<UserProvider>().updateProfile(username: _controller.text);
+    await userProv.changeUsername(newName, price);
     if (!mounted) return;
     setState(() => _saving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
+
+    messenger.showSnackBar(
       SnackBar(
-        content: Text('Saved, ${_controller.text.trim()}! 👑'),
+        content: Text('Renamed to $newName! 👑'),
         backgroundColor: AppTheme.goldDark,
       ),
     );
@@ -197,7 +225,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
+
+                          // Rang nach ausgegebenem Geld
+                          _RankCard(spentMinor: user.totalSpentMinor),
+                          const SizedBox(height: 16),
 
                           // Statistik
                           Row(
@@ -222,6 +254,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _NextPriceCard(
                               price: PaymentConfig.format(
                                   user.currentResultPriceMinor)),
+                          const SizedBox(height: 28),
+
+                          // Auszeichnungen
+                          _AchievementsSection(user: user),
                           const SizedBox(height: 28),
 
                           // Avatar-Auswahl
@@ -260,6 +296,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     return null;
                                   },
                                 ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.info_outline,
+                                        size: 14,
+                                        color: AppTheme.textSecondary),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Changing your name costs ${PaymentConfig.format(PaymentConfig.usernameChangePriceMinor)}.',
+                                        style: const TextStyle(
+                                          color: AppTheme.textSecondary,
+                                          fontSize: 12,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 const SizedBox(height: 14),
                                 ElevatedButton(
                                   onPressed: _saving ? null : _save,
@@ -272,26 +327,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             color: Colors.black,
                                           ),
                                         )
-                                      : const Text('SAVE'),
+                                      : Text(
+                                          'RENAME  (${PaymentConfig.format(PaymentConfig.usernameChangePriceMinor)})',
+                                        ),
                                 ),
                               ],
                             ),
                           ),
+                          const SizedBox(height: 24),
+                          const Divider(color: AppTheme.divider, height: 1),
                           const SizedBox(height: 16),
-                          OutlinedButton.icon(
-                            onPressed: _logout,
-                            icon: const Icon(Icons.logout, size: 18),
-                            label: const Text('SIGN OUT'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFE05A5A),
-                              side: const BorderSide(color: Color(0xFFE05A5A)),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                          ),
+                          _SignOutButton(onTap: _logout),
+                          const SizedBox(height: 8),
                         ],
                       ),
                     ),
@@ -332,6 +379,52 @@ class _PhotoButton extends StatelessWidget {
   }
 }
 
+/// Vollbreiter, edel-dezenter Abmelde-Button (rot getönt, mit Ripple).
+class _SignOutButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _SignOutButton({required this.onTap});
+
+  static const Color _red = Color(0xFFE05A5A);
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: _red.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _red.withValues(alpha: 0.45)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.logout_rounded, color: _red, size: 18),
+                SizedBox(width: 10),
+                Text(
+                  'SIGN OUT',
+                  style: TextStyle(
+                    color: _red,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AvatarPicker extends StatelessWidget {
   final String selected;
   final ValueChanged<String> onPick;
@@ -364,6 +457,194 @@ class _AvatarPicker extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+/// Aktueller Rang mit Fortschrittsbalken zum nächsten Rang.
+class _RankCard extends StatelessWidget {
+  final int spentMinor;
+  const _RankCard({required this.spentMinor});
+
+  @override
+  Widget build(BuildContext context) {
+    final rank = rankForSpent(spentMinor);
+    final next = nextRankAfter(rank);
+    final progress = rankProgress(spentMinor);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            rank.color.withValues(alpha: 0.18),
+            AppTheme.card,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: rank.color.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: rank.color.withValues(alpha: 0.15),
+                  border: Border.all(color: rank.color),
+                ),
+                child: Icon(rank.icon, color: rank.color, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('YOUR RANK',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 10,
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.bold,
+                        )),
+                    Text(
+                      rank.name,
+                      style: TextStyle(
+                        color: rank.color,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: AppTheme.surface,
+              valueColor: AlwaysStoppedAnimation(rank.color),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              next == null
+                  ? 'Maximum rank reached 👑'
+                  : '${PaymentConfig.format(next.thresholdMinor - spentMinor)} to ${next.name}',
+              style: const TextStyle(
+                  color: AppTheme.textSecondary, fontSize: 11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Übersicht der Auszeichnungen (frei/gesperrt) mit Fortschritt.
+class _AchievementsSection extends StatelessWidget {
+  final UserModel user;
+  const _AchievementsSection({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const _SectionLabel('ACHIEVEMENTS'),
+            const Spacer(),
+            Text(
+              '${unlockedCount(user)} / ${kAchievements.length}',
+              style: const TextStyle(
+                color: AppTheme.gold,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: kAchievements
+              .map((a) => _AchievementBadge(achievement: a, user: user))
+              .toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _AchievementBadge extends StatelessWidget {
+  final Achievement achievement;
+  final UserModel user;
+
+  const _AchievementBadge({required this.achievement, required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final unlocked = achievement.isUnlocked(user);
+    final label = achievement.progressLabel(user);
+    final color = unlocked ? AppTheme.gold : AppTheme.textSecondary;
+
+    return Tooltip(
+      message: achievement.description,
+      child: Container(
+        width: 104,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: unlocked
+              ? AppTheme.gold.withValues(alpha: 0.10)
+              : AppTheme.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: unlocked ? AppTheme.gold : AppTheme.divider,
+            width: unlocked ? 1 : 0.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              unlocked ? achievement.icon : Icons.lock_outline,
+              color: color,
+              size: 26,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              achievement.title,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: unlocked ? AppTheme.textPrimary : AppTheme.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                height: 1.1,
+              ),
+            ),
+            if (!unlocked && label != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: const TextStyle(
+                    color: AppTheme.textSecondary, fontSize: 9),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

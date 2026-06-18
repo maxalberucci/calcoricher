@@ -138,6 +138,23 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ändert den Benutzernamen gegen Bezahlung. Der Betrag zählt zum
+  /// ausgegebenen Geld (Rangliste), aber NICHT zum Resultat-Zähler.
+  /// Die Zahlung selbst läuft vorher über die UI (PaymentService).
+  Future<void> changeUsername(String newUsername, int amountMinor) async {
+    final user = currentUser;
+    if (user == null) return;
+    final name = newUsername.trim();
+    if (name.isEmpty) return;
+
+    user.username = name;
+    user.totalSpentMinor += amountMinor;
+    user.usernameChanges += 1;
+
+    await _persist();
+    notifyListeners();
+  }
+
   /// Verbucht eine erfolgreiche (echte) Zahlung: erhöht den ausgegebenen Betrag
   /// und den Zähler (verdoppelt den nächsten Preis) und legt die freigeschaltete
   /// Rechnung im Verlauf ab (neueste zuerst, max. 50).
@@ -161,6 +178,12 @@ class UserProvider extends ChangeNotifier {
     );
     if (user.history.length > 50) {
       user.history.removeRange(50, user.history.length);
+    }
+    // Operator-Nutzung für Achievements zählen (pro Rechnung max. 1 je Operator).
+    for (final op in const ['+', '-', '*', '/']) {
+      if (expression.contains(op)) {
+        user.operatorCounts[op] = (user.operatorCounts[op] ?? 0) + 1;
+      }
     }
 
     await _persist();

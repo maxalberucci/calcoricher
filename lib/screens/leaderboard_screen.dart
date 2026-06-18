@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/user_model.dart';
 import '../payments/payment_config.dart';
+import '../gamification/ranks.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/luxury_background.dart';
@@ -287,10 +288,7 @@ class _RankTile extends StatelessWidget {
             ],
           ],
         ),
-        subtitle: Text(
-          '${user.unlockedResultsCount} results unlocked',
-          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
-        ),
+        subtitle: _RankSubtitle(user: user),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -320,6 +318,39 @@ class _RankTile extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Leerer Zustand
 // ---------------------------------------------------------------------------
+/// Untertitel im Ranglisten-Eintrag: Rang-Titel + freigeschaltete Resultate.
+class _RankSubtitle extends StatelessWidget {
+  final UserModel user;
+  const _RankSubtitle({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final rank = rankForSpent(user.totalSpentMinor);
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Row(
+        children: [
+          Icon(rank.icon, size: 12, color: rank.color),
+          const SizedBox(width: 4),
+          Text(
+            rank.name,
+            style: TextStyle(
+              color: rank.color,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            '  •  ${user.unlockedResultsCount} results',
+            style: const TextStyle(
+                color: AppTheme.textSecondary, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
