@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../payments/payment_config.dart';
 import '../payments/payment_service.dart';
 import '../theme/app_theme.dart';
+import 'gold_text.dart';
 
 /// Öffnet das Bezahl-Sheet und gibt `true` zurück, wenn die Zahlung erfolgreich war.
 Future<bool> showPaymentSheet(
@@ -105,11 +106,11 @@ class _PaymentSheetState extends State<_PaymentSheet> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          GoldText(
             PaymentConfig.format(widget.amountMinor),
             textAlign: TextAlign.center,
+            glow: true,
             style: const TextStyle(
-              color: AppTheme.gold,
               fontSize: 44,
               fontWeight: FontWeight.bold,
             ),
@@ -134,7 +135,7 @@ class _PaymentSheetState extends State<_PaymentSheet> {
               SizedBox(width: 10),
               _MethodBadge(icon: Icons.account_balance_wallet, label: 'Google Pay'),
               SizedBox(width: 10),
-              _MethodBadge(icon: Icons.credit_card, label: 'Karte'),
+              _MethodBadge(icon: Icons.credit_card, label: 'Card'),
             ],
           ),
           const SizedBox(height: 22),

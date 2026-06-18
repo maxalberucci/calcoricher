@@ -33,9 +33,8 @@ abstract class PaymentService {
   });
 
   /// Wählt anhand der Konfiguration die passende Implementierung.
-  factory PaymentService.create() => PaymentConfig.sandbox
-      ? SandboxPaymentService()
-      : StripeCheckoutService();
+  factory PaymentService.create() =>
+      PaymentConfig.sandbox ? SandboxPaymentService() : StripeCheckoutService();
 }
 
 /// Echte Zahlungen über Stripe Checkout (Karte · Apple Pay · Google Pay).
@@ -54,9 +53,11 @@ class StripeCheckoutService implements PaymentService {
     required String description,
   }) async {
     try {
+      final baseUri = Uri.parse(PaymentConfig.backendBaseUrl);
       // 1) Checkout-Session vom Backend anfordern.
       final createRes = await _client.post(
-        Uri.parse('${PaymentConfig.backendBaseUrl}/create-checkout-session'),
+        baseUri.replace(
+            path: _joinPath(baseUri.path, 'create-checkout-session')),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'amount': amountMinor,
@@ -92,11 +93,14 @@ class StripeCheckoutService implements PaymentService {
   Future<PaymentResult> _pollStatus(String sessionId) async {
     const interval = Duration(seconds: 2);
     const maxTries = 90;
+    final baseUri = Uri.parse(PaymentConfig.backendBaseUrl);
     for (var i = 0; i < maxTries; i++) {
       await Future.delayed(interval);
       final res = await _client.get(
-        Uri.parse(
-            '${PaymentConfig.backendBaseUrl}/session-status?id=$sessionId'),
+        baseUri.replace(
+          path: _joinPath(baseUri.path, 'session-status'),
+          queryParameters: {'id': sessionId},
+        ),
       );
       if (res.statusCode != 200) continue;
       final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -108,6 +112,13 @@ class StripeCheckoutService implements PaymentService {
     }
     return const PaymentResult(
         PaymentStatus.failed, 'Timed out waiting for confirmation.');
+  }
+
+  String _joinPath(String basePath, String endpoint) {
+    final normalized = basePath.endsWith('/')
+        ? basePath.substring(0, basePath.length - 1)
+        : basePath;
+    return '$normalized/$endpoint';
   }
 
   @override
@@ -127,8 +138,8 @@ class StripeCheckoutService implements PaymentService {
     // Bei externem Hosted-Crypto-Checkout kann der Client den Abschluss nicht
     // sicher verifizieren – hier müsste in Produktion ein Webhook greifen.
     return ok
-        ? const PaymentResult(PaymentStatus.failed,
-            'Crypto payment is confirmed via webhook.')
+        ? const PaymentResult(
+            PaymentStatus.failed, 'Crypto payment is confirmed via webhook.')
         : const PaymentResult(
             PaymentStatus.failed, 'Could not open crypto checkout.');
   }

@@ -5,6 +5,7 @@ import '../payments/payment_config.dart';
 import '../gamification/ranks.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/gold_text.dart';
 import '../widgets/luxury_background.dart';
 import '../widgets/user_avatar.dart';
 import 'public_profile_screen.dart';
@@ -193,14 +194,24 @@ class _PodiumBlock extends StatelessWidget {
                 children: [
                   FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(
-                      PaymentConfig.format(user.totalSpentMinor),
-                      style: TextStyle(
-                        color: _color,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    // Der Spitzenreiter bekommt den poliertem Metall-Look.
+                    child: rank == 1
+                        ? GoldText(
+                            PaymentConfig.format(user.totalSpentMinor),
+                            glow: true,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : Text(
+                            PaymentConfig.format(user.totalSpentMinor),
+                            style: TextStyle(
+                              color: _color,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                   Text(
                     'spent',

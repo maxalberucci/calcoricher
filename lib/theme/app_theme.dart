@@ -9,6 +9,10 @@ class AppTheme {
   static const Color goldLight = Color(0xFFFFE89A);
   static const Color goldDark = Color(0xFF9A7B1A);
 
+  // Edelmetall-Akzente für dezente Highlights (Old-Money-Look).
+  static const Color champagne = Color(0xFFEBDDB4);
+  static const Color platinum = Color(0xFFE5E4E2);
+
   // Dunkle Palette
   static const Color background = Color(0xFF0A0A0B);
   static const Color surface = Color(0xFF161618);
@@ -29,6 +33,22 @@ class AppTheme {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [goldLight, gold, goldDark],
+  );
+
+  /// Polierter Metall-Verlauf mit „Sheen" – für hochwertige Text-Highlights
+  /// (Markenname, Resultat, Preis) via [ShaderMask]. Der diagonale Hell-Streifen
+  /// in der Mitte erzeugt den teuren, reflektierenden Edelmetall-Look.
+  static const LinearGradient metallicGold = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFBF3CE),
+      gold,
+      goldDark,
+      gold,
+      Color(0xFFFBF3CE),
+    ],
+    stops: [0.0, 0.35, 0.5, 0.65, 1.0],
   );
 
   /// Tiefer Hintergrundverlauf (oben minimal heller).

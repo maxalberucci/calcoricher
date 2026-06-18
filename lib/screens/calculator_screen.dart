@@ -5,6 +5,7 @@ import '../providers/user_provider.dart';
 import '../payments/payment_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/calculator_button.dart';
+import '../widgets/gold_text.dart';
 import '../widgets/history_drawer.dart';
 import '../widgets/locked_result.dart';
 import '../widgets/luxury_background.dart';
@@ -37,7 +38,14 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         },
       ),
       appBar: AppBar(
-        title: const Text('CALCORICHER'),
+        title: const GoldText(
+          'CALCORICHER',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 3,
+          ),
+        ),
         leading: user != null
             ? IconButton(
                 icon: const Icon(Icons.history),
@@ -172,10 +180,10 @@ class _ResultLine extends StatelessWidget {
     }
 
     if (calc.isRevealed) {
-      return Text(
+      return GoldText(
         '= ${calc.displayResult}',
+        glow: true,
         style: const TextStyle(
-          color: AppTheme.gold,
           fontSize: 52,
           fontWeight: FontWeight.bold,
         ),
@@ -307,7 +315,7 @@ class _SpentBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.savings, size: 15, color: AppTheme.gold),
+          const Icon(Icons.diamond_outlined, size: 15, color: AppTheme.gold),
           const SizedBox(width: 6),
           Text(
             PaymentConfig.format(amountMinor),

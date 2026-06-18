@@ -20,9 +20,14 @@ Flutter-App** liegen darf.
    cd server
    npm install
    ```
-3. Secret Key setzen und starten (Test-Modus-Key `sk_test_...` zum Ausprobieren):
+3. Secret Key, Redirect-URLs und erlaubte Origins setzen und starten
+   (Test-Modus-Key `sk_test_...` zum Ausprobieren):
    ```bash
-   STRIPE_SECRET_KEY=sk_test_xxx npm start
+   STRIPE_SECRET_KEY=sk_test_xxx \
+   CHECKOUT_SUCCESS_URL=https://deinedomain.ch/success?session_id={CHECKOUT_SESSION_ID} \
+   CHECKOUT_CANCEL_URL=https://deinedomain.ch/cancel \
+   ALLOWED_ORIGINS=https://deinedomain.ch \
+   npm start
    ```
 4. Server öffentlich erreichbar machen (z. B. via `ngrok http 4242`,
    Railway, Render, Fly.io, Cloud Run …).
@@ -42,8 +47,12 @@ static const String currencySymbol = 'CHF';
 
 | Methode | Pfad | Zweck |
 |--------|------|-------|
-| POST | `/create-checkout-session` | `{amount, currency, description}` → `{id, url}` |
+| POST | `/create-checkout-session` | `{amount, description}` → `{id, url}` |
 | GET  | `/session-status?id=...`    | → `{status: "paid" \| "open" \| "expired"}` |
+
+Der Server akzeptiert nur konfigurierte Beträge: `BASE_PRICE_MINOR * 2^n`
+bis `MAX_RESULT_UNLOCKS` sowie `USERNAME_CHANGE_PRICE_MINOR`. Die App darf
+Preise anzeigen, aber nicht frei bestimmen, was Stripe abrechnet.
 
 ## Hinweis zu App Stores
 

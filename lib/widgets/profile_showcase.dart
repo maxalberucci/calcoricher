@@ -34,7 +34,7 @@ class ProfileShowcase extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accentIndex =
-        user.profileAccentIndex.clamp(0, kProfileAccents.length - 1) as int;
+        user.profileAccentIndex.clamp(0, kProfileAccents.length - 1);
     final accent = kProfileAccents[accentIndex];
     final title = user.profileTitle.trim();
     final bio = user.bio.trim();

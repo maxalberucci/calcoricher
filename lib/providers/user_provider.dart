@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/history_entry.dart';
 import '../models/profile_comment.dart';
@@ -91,7 +93,7 @@ class UserProvider extends ChangeNotifier {
       username: name,
       email: mail,
     );
-    _accounts[mail] = _Account(password: password, user: user);
+    _accounts[mail] = _Account.withPassword(password: password, user: user);
     _currentEmail = mail;
 
     await _persist();
@@ -109,7 +111,11 @@ class UserProvider extends ChangeNotifier {
     final account = _accounts[mail];
 
     if (account == null) return 'No account found with this email.';
-    if (account.password != password) return 'Wrong password.';
+    if (!account.verifyPassword(password)) return 'Wrong password.';
+    if (account.needsPasswordMigration) {
+      _accounts[mail] =
+          _Account.withPassword(password: password, user: account.user);
+    }
 
     _currentEmail = mail;
     await _persist();
@@ -309,20 +315,74 @@ class UserProvider extends ChangeNotifier {
   }
 }
 
-/// Bündelt Passwort und Benutzerdaten eines Kontos (nur lokal, Fake-Login).
+/// Bündelt Passwort-Hash und Benutzerdaten eines Kontos (nur lokal, Fake-Login).
 class _Account {
-  final String password;
+  final String passwordHash;
+  final String passwordSalt;
+  final String? legacyPassword;
   final UserModel user;
 
-  _Account({required this.password, required this.user});
+  _Account({
+    required this.passwordHash,
+    required this.passwordSalt,
+    required this.user,
+    this.legacyPassword,
+  });
+
+  factory _Account.withPassword({
+    required String password,
+    required UserModel user,
+  }) {
+    final salt = _PasswordHasher.createSalt();
+    return _Account(
+      passwordHash: _PasswordHasher.hash(password, salt),
+      passwordSalt: salt,
+      user: user,
+    );
+  }
+
+  bool get needsPasswordMigration => legacyPassword != null;
+
+  bool verifyPassword(String password) {
+    if (legacyPassword != null) return legacyPassword == password;
+    return passwordHash == _PasswordHasher.hash(password, passwordSalt);
+  }
 
   Map<String, dynamic> toJson() => {
-        'password': password,
+        'passwordHash': passwordHash,
+        'passwordSalt': passwordSalt,
         'user': user.toJson(),
       };
 
-  factory _Account.fromJson(Map<String, dynamic> json) => _Account(
-        password: json['password'] as String,
-        user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
-      );
+  factory _Account.fromJson(Map<String, dynamic> json) {
+    final hash = json['passwordHash'] as String?;
+    final salt = json['passwordSalt'] as String?;
+    final legacyPassword = json['password'] as String?;
+    final user = UserModel.fromJson(json['user'] as Map<String, dynamic>);
+
+    if (hash != null && salt != null) {
+      return _Account(passwordHash: hash, passwordSalt: salt, user: user);
+    }
+
+    return _Account(
+      passwordHash: '',
+      passwordSalt: '',
+      legacyPassword: legacyPassword,
+      user: user,
+    );
+  }
+}
+
+class _PasswordHasher {
+  static final Random _random = Random.secure();
+
+  static String createSalt() {
+    final bytes = List<int>.generate(16, (_) => _random.nextInt(256));
+    return base64UrlEncode(bytes);
+  }
+
+  static String hash(String password, String salt) {
+    final bytes = utf8.encode('$salt:$password');
+    return sha256.convert(bytes).toString();
+  }
 }

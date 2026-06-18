@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/gold_text.dart';
 import '../widgets/luxury_background.dart';
 import 'home_shell.dart';
 
@@ -84,14 +85,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Text('👑', style: TextStyle(fontSize: 64),
                           textAlign: TextAlign.center),
                       const SizedBox(height: 16),
-                      const Text(
+                      const GoldText(
                         'CALCORICHER',
                         textAlign: TextAlign.center,
+                        glow: true,
                         style: TextStyle(
-                          color: AppTheme.gold,
-                          fontSize: 26,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
+                          letterSpacing: 4,
                         ),
                       ),
                       const SizedBox(height: 6),

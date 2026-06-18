@@ -14,6 +14,7 @@ dependencies:
   provider: ^6.1.2
   shared_preferences: ^2.2.3
   math_expressions: ^2.4.0
+  crypto: ^3.0.3
   url_launcher: ^6.3.0
   http: ^1.2.0
   image_picker: ^1.1.2

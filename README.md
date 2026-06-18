@@ -55,8 +55,13 @@ server/           # Optionales Stripe-Backend für echte Zahlungen
 
 ```bash
 flutter pub get
-flutter run
+flutter run 
 ```
+### Start for Linux
+
+```bash
+flutter run -d linux
+``
 
 Weitere Setup-Hinweise stehen in `ANLEITUNG.md`. Das Stripe-Backend ist in
 `server/README.md` dokumentiert.

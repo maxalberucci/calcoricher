@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/gold_text.dart';
 import '../widgets/luxury_background.dart';
 import 'home_shell.dart';
 import 'login_screen.dart';
@@ -86,23 +87,31 @@ class _SplashScreenState extends State<SplashScreen>
                   const Text('👑', style: TextStyle(fontSize: 72)),
                   const SizedBox(height: 24),
                   // App name
-                  const Text(
+                  const GoldText(
                     'CALCORICHER',
                     textAlign: TextAlign.center,
+                    glow: true,
                     style: TextStyle(
-                      color: AppTheme.gold,
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 3,
+                      letterSpacing: 4,
                       height: 1.2,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Gold divider
+                  // Gold divider mit weichem Verlauf an den Enden.
                   Container(
                     height: 1,
                     width: 200,
-                    color: AppTheme.goldDark,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          AppTheme.gold,
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   // Tagline
