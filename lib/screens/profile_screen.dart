@@ -10,6 +10,7 @@ import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/luxury_background.dart';
 import '../widgets/payment_sheet.dart';
+import '../widgets/profile_showcase.dart';
 import '../widgets/user_avatar.dart';
 import 'login_screen.dart';
 
@@ -27,18 +28,31 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _controller = TextEditingController();
+  final _titleController = TextEditingController();
+  final _bioController = TextEditingController();
+  final _linksController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  int _accentIndex = 0;
   bool _saving = false;
+  bool _savingDetails = false;
 
   @override
   void initState() {
     super.initState();
-    _controller.text = context.read<UserProvider>().currentUser?.username ?? '';
+    final user = context.read<UserProvider>().currentUser;
+    _controller.text = user?.username ?? '';
+    _titleController.text = user?.profileTitle ?? '';
+    _bioController.text = user?.bio ?? '';
+    _linksController.text = user?.links.join('\n') ?? '';
+    _accentIndex = user?.profileAccentIndex ?? 0;
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _titleController.dispose();
+    _bioController.dispose();
+    _linksController.dispose();
     super.dispose();
   }
 
@@ -82,6 +96,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _pickAvatar(String avatar) async {
     await context.read<UserProvider>().updateProfile(avatar: avatar);
+  }
+
+  Future<void> _saveProfileDetails() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final links = _linksController.text
+        .split(RegExp(r'[\n,]'))
+        .map(_normalizeLink)
+        .where((link) => link.isNotEmpty)
+        .toList();
+
+    setState(() => _savingDetails = true);
+    await context.read<UserProvider>().updateProfileDetails(
+          profileTitle: _titleController.text,
+          bio: _bioController.text,
+          links: links,
+          profileAccentIndex: _accentIndex,
+        );
+    if (!mounted) return;
+    setState(() => _savingDetails = false);
+
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Profile updated.'),
+        backgroundColor: AppTheme.goldDark,
+      ),
+    );
+  }
+
+  String _normalizeLink(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return '';
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    return 'https://$value';
   }
 
   /// Nimmt ein Foto auf bzw. wählt eines aus der Galerie, speichert es dauerhaft
@@ -226,6 +275,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(height: 20),
+                          ProfileShowcase(user: user),
+                          const SizedBox(height: 20),
 
                           // Rang nach ausgegebenem Geld
                           _RankCard(spentMinor: user.totalSpentMinor),
@@ -266,6 +317,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _AvatarPicker(
                             selected: user.avatar,
                             onPick: _pickAvatar,
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Profil personalisieren
+                          const _SectionLabel('PROFILE STYLE'),
+                          const SizedBox(height: 10),
+                          _ProfileDetailsEditor(
+                            titleController: _titleController,
+                            bioController: _bioController,
+                            linksController: _linksController,
+                            accentIndex: _accentIndex,
+                            saving: _savingDetails,
+                            onAccentChanged: (index) {
+                              setState(() => _accentIndex = index);
+                            },
+                            onSave: _saveProfileDetails,
                           ),
                           const SizedBox(height: 24),
 
@@ -375,6 +442,92 @@ class _PhotoButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
+    );
+  }
+}
+
+class _ProfileDetailsEditor extends StatelessWidget {
+  final TextEditingController titleController;
+  final TextEditingController bioController;
+  final TextEditingController linksController;
+  final int accentIndex;
+  final bool saving;
+  final ValueChanged<int> onAccentChanged;
+  final VoidCallback onSave;
+
+  const _ProfileDetailsEditor({
+    required this.titleController,
+    required this.bioController,
+    required this.linksController,
+    required this.accentIndex,
+    required this.saving,
+    required this.onAccentChanged,
+    required this.onSave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ProfileAccentPicker(selected: accentIndex, onChanged: onAccentChanged),
+        const SizedBox(height: 12),
+        TextField(
+          controller: titleController,
+          maxLength: 42,
+          style: const TextStyle(color: AppTheme.textPrimary),
+          decoration: const InputDecoration(
+            hintText: 'e.g. Diamond Division Investor',
+            labelText: 'Profile title',
+            prefixIcon: Icon(Icons.workspace_premium, color: AppTheme.gold),
+            counterStyle: TextStyle(color: AppTheme.textSecondary),
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: bioController,
+          minLines: 3,
+          maxLines: 5,
+          maxLength: 220,
+          style: const TextStyle(color: AppTheme.textPrimary),
+          decoration: const InputDecoration(
+            hintText: 'Short text about you',
+            labelText: 'Bio',
+            alignLabelWithHint: true,
+            prefixIcon: Icon(Icons.notes, color: AppTheme.gold),
+            counterStyle: TextStyle(color: AppTheme.textSecondary),
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: linksController,
+          minLines: 2,
+          maxLines: 4,
+          keyboardType: TextInputType.url,
+          style: const TextStyle(color: AppTheme.textPrimary),
+          decoration: const InputDecoration(
+            hintText: 'website.com\ninstagram.com/name',
+            labelText: 'Links',
+            alignLabelWithHint: true,
+            prefixIcon: Icon(Icons.link, color: AppTheme.gold),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ElevatedButton.icon(
+          onPressed: saving ? null : onSave,
+          icon: saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.black,
+                  ),
+                )
+              : const Icon(Icons.save),
+          label: const Text('SAVE PROFILE'),
+        ),
+      ],
     );
   }
 }

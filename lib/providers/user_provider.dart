@@ -129,6 +129,37 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Speichert die frei personalisierbaren Profilinhalte.
+  Future<void> updateProfileDetails({
+    String? profileTitle,
+    String? bio,
+    List<String>? links,
+    int? profileAccentIndex,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    if (profileTitle != null) {
+      user.profileTitle = profileTitle.trim();
+    }
+    if (bio != null) {
+      user.bio = bio.trim();
+    }
+    if (links != null) {
+      user.links = links
+          .map((link) => link.trim())
+          .where((link) => link.isNotEmpty)
+          .take(4)
+          .toList();
+    }
+    if (profileAccentIndex != null) {
+      user.profileAccentIndex = profileAccentIndex;
+    }
+
+    await _persist();
+    notifyListeners();
+  }
+
   /// Setzt ein selbst gewähltes Profilbild (Kamera/Galerie).
   Future<void> updateProfilePhoto(String path) async {
     final user = currentUser;

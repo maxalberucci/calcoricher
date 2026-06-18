@@ -18,6 +18,18 @@ class UserModel {
   /// Pfad zu einem selbst gewählten Profilbild (Kamera/Galerie). null = Emoji.
   String? avatarPath;
 
+  /// Kurzer persönlicher Claim unter dem Namen.
+  String profileTitle;
+
+  /// Freier Profiltext für die öffentliche Profilkarte.
+  String bio;
+
+  /// Antippbare Links, die auf der Profilkarte gezeigt werden.
+  List<String> links;
+
+  /// Index des gewählten Profil-Akzents.
+  int profileAccentIndex;
+
   /// Insgesamt mit echtem Geld ausgegebener Betrag in Minor-Units (Cent).
   int totalSpentMinor;
 
@@ -39,12 +51,17 @@ class UserModel {
     required this.email,
     this.avatar = '👑',
     this.avatarPath,
+    this.profileTitle = '',
+    this.bio = '',
+    List<String>? links,
+    this.profileAccentIndex = 0,
     this.totalSpentMinor = 0,
     this.unlockedResultsCount = 0,
     List<HistoryEntry>? history,
     this.usernameChanges = 0,
     Map<String, int>? operatorCounts,
-  })  : history = history ?? [],
+  })  : links = links ?? [],
+        history = history ?? [],
         operatorCounts = operatorCounts ?? {};
 
   /// Wie oft [op] in freigeschalteten Rechnungen genutzt wurde.
@@ -63,6 +80,10 @@ class UserModel {
         'email': email,
         'avatar': avatar,
         'avatarPath': avatarPath,
+        'profileTitle': profileTitle,
+        'bio': bio,
+        'links': links,
+        'profileAccentIndex': profileAccentIndex,
         'totalSpentMinor': totalSpentMinor,
         'unlockedResultsCount': unlockedResultsCount,
         'history': history.map((e) => e.toJson()).toList(),
@@ -76,6 +97,15 @@ class UserModel {
         email: json['email'] as String? ?? '',
         avatar: json['avatar'] as String? ?? '👑',
         avatarPath: json['avatarPath'] as String?,
+        profileTitle: json['profileTitle'] as String? ?? '',
+        bio: json['bio'] as String? ?? '',
+        links: (json['links'] as List?)
+                ?.whereType<String>()
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty)
+                .toList() ??
+            [],
+        profileAccentIndex: json['profileAccentIndex'] as int? ?? 0,
         totalSpentMinor: json['totalSpentMinor'] as int? ?? 0,
         unlockedResultsCount: json['unlockedResultsCount'] as int? ?? 0,
         history: (json['history'] as List?)

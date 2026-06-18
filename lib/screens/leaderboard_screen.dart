@@ -7,6 +7,7 @@ import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/luxury_background.dart';
 import '../widgets/user_avatar.dart';
+import 'public_profile_screen.dart';
 
 class LeaderboardScreen extends StatelessWidget {
   const LeaderboardScreen({super.key});
@@ -42,7 +43,10 @@ class LeaderboardScreen extends StatelessWidget {
                         ),
                         const Divider(color: AppTheme.divider),
                         if (leaderboard.length >= 2)
-                          _Podium(leaderboard: leaderboard),
+                          _Podium(
+                            leaderboard: leaderboard,
+                            currentId: currentId,
+                          ),
                         Expanded(
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(
@@ -73,8 +77,9 @@ class LeaderboardScreen extends StatelessWidget {
 // ---------------------------------------------------------------------------
 class _Podium extends StatelessWidget {
   final List<UserModel> leaderboard;
+  final String? currentId;
 
-  const _Podium({required this.leaderboard});
+  const _Podium({required this.leaderboard, required this.currentId});
 
   @override
   Widget build(BuildContext context) {
@@ -88,12 +93,33 @@ class _Podium extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (second != null)
-            Expanded(child: _PodiumBlock(user: second, rank: 2, height: 74))
+            Expanded(
+              child: _PodiumBlock(
+                user: second,
+                rank: 2,
+                height: 74,
+                isCurrentUser: second.id == currentId,
+              ),
+            )
           else
             const Expanded(child: SizedBox()),
-          Expanded(child: _PodiumBlock(user: first, rank: 1, height: 104)),
+          Expanded(
+            child: _PodiumBlock(
+              user: first,
+              rank: 1,
+              height: 104,
+              isCurrentUser: first.id == currentId,
+            ),
+          ),
           if (third != null)
-            Expanded(child: _PodiumBlock(user: third, rank: 3, height: 58))
+            Expanded(
+              child: _PodiumBlock(
+                user: third,
+                rank: 3,
+                height: 58,
+                isCurrentUser: third.id == currentId,
+              ),
+            )
           else
             const Expanded(child: SizedBox()),
         ],
@@ -106,11 +132,13 @@ class _PodiumBlock extends StatelessWidget {
   final UserModel user;
   final int rank;
   final double height;
+  final bool isCurrentUser;
 
   const _PodiumBlock({
     required this.user,
     required this.rank,
     required this.height,
+    required this.isCurrentUser,
   });
 
   String get _medal => rank == 1
@@ -127,64 +155,74 @@ class _PodiumBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        UserAvatar(
-          emoji: user.avatar,
-          imagePath: user.avatarPath,
-          size: 34,
-        ),
-        Text(_medal, style: const TextStyle(fontSize: 20)),
-        const SizedBox(height: 2),
-        Text(
-          user.username,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-              color: _color, fontSize: 11, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 4),
-        Container(
-          height: height,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                _color.withValues(alpha: 0.30),
-                _color.withValues(alpha: 0.08),
-              ],
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-            border: Border.all(color: _color.withValues(alpha: 0.6)),
+    return InkWell(
+      onTap: () => _openPublicProfile(
+        context,
+        user: user,
+        rank: rank,
+        isCurrentUser: isCurrentUser,
+      ),
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        children: [
+          UserAvatar(
+            emoji: user.avatar,
+            imagePath: user.avatarPath,
+            size: 34,
           ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    PaymentConfig.format(user.totalSpentMinor),
-                    style: TextStyle(
-                      color: _color,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+          Text(_medal, style: const TextStyle(fontSize: 20)),
+          const SizedBox(height: 2),
+          Text(
+            user.username,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                color: _color, fontSize: 11, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Container(
+            height: height,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  _color.withValues(alpha: 0.30),
+                  _color.withValues(alpha: 0.08),
+                ],
+              ),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(10)),
+              border: Border.all(color: _color.withValues(alpha: 0.6)),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      PaymentConfig.format(user.totalSpentMinor),
+                      style: TextStyle(
+                        color: _color,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-                Text(
-                  'spent',
-                  style: TextStyle(
-                      color: _color.withValues(alpha: 0.8), fontSize: 9),
-                ),
-              ],
+                  Text(
+                    'spent',
+                    style: TextStyle(
+                        color: _color.withValues(alpha: 0.8), fontSize: 9),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -226,6 +264,12 @@ class _RankTile extends StatelessWidget {
         ),
       ),
       child: ListTile(
+        onTap: () => _openPublicProfile(
+          context,
+          user: user,
+          rank: rank,
+          isCurrentUser: isCurrentUser,
+        ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         leading: SizedBox(
           width: 44,
@@ -313,6 +357,23 @@ class _RankTile extends StatelessWidget {
       ),
     );
   }
+}
+
+void _openPublicProfile(
+  BuildContext context, {
+  required UserModel user,
+  required int rank,
+  required bool isCurrentUser,
+}) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => PublicProfileScreen(
+        user: user,
+        leaderboardRank: rank,
+        isCurrentUser: isCurrentUser,
+      ),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
