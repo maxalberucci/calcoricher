@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/user_model.dart';
+import '../payments/payment_config.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/luxury_background.dart';
 
 class LeaderboardScreen extends StatelessWidget {
   const LeaderboardScreen({super.key});
@@ -10,55 +12,62 @@ class LeaderboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final leaderboard = context.watch<UserProvider>().leaderboard;
-    final currentName = context.watch<UserProvider>().currentUser?.name;
+    final currentId = context.watch<UserProvider>().currentUser?.id;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(title: const Text('RANGLISTE DER REICHEN')),
-      body: leaderboard.isEmpty
-          ? _EmptyState()
-          : Column(
-              children: [
-                // Header quote
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Text(
-                    'Die Mutigsten zahlen am meisten.\nSind es auch die Klügsten? 🤔',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontStyle: FontStyle.italic,
+      body: LuxuryBackground(
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: leaderboard.isEmpty
+                  ? const _EmptyState()
+                  : Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                          child: Text(
+                            'Die Mutigsten zahlen am meisten.\nSind es auch die Klügsten? 🤔',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(fontStyle: FontStyle.italic),
+                          ),
                         ),
-                  ),
-                ),
-                const Divider(color: AppTheme.divider),
-
-                // Podium (top 3) if enough users
-                if (leaderboard.length >= 2) _Podium(leaderboard: leaderboard),
-
-                // Full list
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    itemCount: leaderboard.length,
-                    itemBuilder: (context, i) {
-                      final user = leaderboard[i];
-                      final isMe = user.name == currentName;
-                      return _RankTile(
-                        rank: i + 1,
-                        user: user,
-                        isCurrentUser: isMe,
-                      );
-                    },
-                  ),
-                ),
-              ],
+                        const Divider(color: AppTheme.divider),
+                        if (leaderboard.length >= 2)
+                          _Podium(leaderboard: leaderboard),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            itemCount: leaderboard.length,
+                            itemBuilder: (context, i) {
+                              final user = leaderboard[i];
+                              return _RankTile(
+                                rank: i + 1,
+                                user: user,
+                                isCurrentUser: user.id == currentId,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
             ),
+          ),
+        ),
+      ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Podium for top 3
+// Podium für die Top 3
 // ---------------------------------------------------------------------------
 class _Podium extends StatelessWidget {
   final List<UserModel> leaderboard;
@@ -67,7 +76,6 @@ class _Podium extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Arrange: 2nd (left), 1st (center, taller), 3rd (right)
     final first = leaderboard[0];
     final second = leaderboard.length > 1 ? leaderboard[1] : null;
     final third = leaderboard.length > 2 ? leaderboard[2] : null;
@@ -77,10 +85,13 @@ class _Podium extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (second != null) Expanded(child: _PodiumBlock(user: second, rank: 2, height: 70)),
-          Expanded(child: _PodiumBlock(user: first, rank: 1, height: 100)),
+          if (second != null)
+            Expanded(child: _PodiumBlock(user: second, rank: 2, height: 74))
+          else
+            const Expanded(child: SizedBox()),
+          Expanded(child: _PodiumBlock(user: first, rank: 1, height: 104)),
           if (third != null)
-            Expanded(child: _PodiumBlock(user: third, rank: 3, height: 55))
+            Expanded(child: _PodiumBlock(user: third, rank: 3, height: 58))
           else
             const Expanded(child: SizedBox()),
         ],
@@ -94,20 +105,37 @@ class _PodiumBlock extends StatelessWidget {
   final int rank;
   final double height;
 
-  const _PodiumBlock({required this.user, required this.rank, required this.height});
+  const _PodiumBlock({
+    required this.user,
+    required this.rank,
+    required this.height,
+  });
 
-  String get _medal => rank == 1 ? '🥇' : rank == 2 ? '🥈' : '🥉';
-  Color get _color => rank == 1 ? AppTheme.gold : rank == 2 ? const Color(0xFFC0C0C0) : const Color(0xFFCD7F32);
+  String get _medal => rank == 1
+      ? '🥇'
+      : rank == 2
+          ? '🥈'
+          : '🥉';
+
+  Color get _color => rank == 1
+      ? AppTheme.gold
+      : rank == 2
+          ? AppTheme.silver
+          : AppTheme.bronze;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(_medal, style: const TextStyle(fontSize: 24)),
-        const SizedBox(height: 4),
+        Text(user.avatar, style: const TextStyle(fontSize: 26)),
+        Text(_medal, style: const TextStyle(fontSize: 20)),
+        const SizedBox(height: 2),
         Text(
-          user.name.length > 8 ? '${user.name.substring(0, 7)}…' : user.name,
-          style: TextStyle(color: _color, fontSize: 11, fontWeight: FontWeight.bold),
+          user.username,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+              color: _color, fontSize: 11, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 4),
@@ -115,25 +143,36 @@ class _PodiumBlock extends StatelessWidget {
           height: height,
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: _color.withValues(alpha: 0.15),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-            border: Border.all(color: _color.withValues(alpha: 0.5)),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                _color.withValues(alpha: 0.30),
+                _color.withValues(alpha: 0.08),
+              ],
+            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+            border: Border.all(color: _color.withValues(alpha: 0.6)),
           ),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  '${user.spentCoins}',
-                  style: TextStyle(
-                    color: _color,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    PaymentConfig.format(user.totalSpentMinor),
+                    style: TextStyle(
+                      color: _color,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 Text(
-                  'Coins',
-                  style: TextStyle(color: _color.withValues(alpha: 0.7), fontSize: 9),
+                  'ausgegeben',
+                  style: TextStyle(
+                      color: _color.withValues(alpha: 0.8), fontSize: 9),
                 ),
               ],
             ),
@@ -145,7 +184,7 @@ class _PodiumBlock extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// List tile for each ranked user
+// Listeneintrag pro Rang
 // ---------------------------------------------------------------------------
 class _RankTile extends StatelessWidget {
   final int rank;
@@ -160,7 +199,13 @@ class _RankTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isCurrentUser ? AppTheme.gold : AppTheme.divider;
+    final medalColor = rank == 1
+        ? AppTheme.gold
+        : rank == 2
+            ? AppTheme.silver
+            : rank == 3
+                ? AppTheme.bronze
+                : AppTheme.textSecondary;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -168,37 +213,54 @@ class _RankTile extends StatelessWidget {
         color: isCurrentUser
             ? AppTheme.gold.withValues(alpha: 0.08)
             : AppTheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: isCurrentUser ? 1 : 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isCurrentUser ? AppTheme.gold : AppTheme.divider,
+          width: isCurrentUser ? 1 : 0.5,
+        ),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         leading: SizedBox(
-          width: 40,
-          child: Center(
-            child: Text(
-              rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : '#$rank',
-              style: TextStyle(
-                fontSize: rank <= 3 ? 22 : 14,
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.bold,
+          width: 44,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 26,
+                child: Text(
+                  rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : '$rank',
+                  style: TextStyle(
+                    fontSize: rank <= 3 ? 20 : 14,
+                    color: medalColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
+            ],
           ),
         ),
         title: Row(
           children: [
-            Text(
-              user.name,
-              style: TextStyle(
-                color: isCurrentUser ? AppTheme.gold : AppTheme.textPrimary,
-                fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
+            Text(user.avatar, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                user.username,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isCurrentUser ? AppTheme.gold : AppTheme.textPrimary,
+                  fontWeight:
+                      isCurrentUser ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
             ),
             if (isCurrentUser) ...[
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppTheme.goldDark.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(4),
@@ -217,19 +279,22 @@ class _RankTile extends StatelessWidget {
           ],
         ),
         subtitle: Text(
-          '${user.resultsShown} Resultate angezeigt  •  ${user.coins} Coins übrig',
+          '${user.unlockedResultsCount} Resultate freigeschaltet',
           style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              '${user.spentCoins}',
-              style: const TextStyle(
-                color: AppTheme.gold,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                PaymentConfig.format(user.totalSpentMinor),
+                style: const TextStyle(
+                  color: AppTheme.gold,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const Text(
@@ -244,9 +309,11 @@ class _RankTile extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Empty state
+// Leerer Zustand
 // ---------------------------------------------------------------------------
 class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -267,7 +334,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Zeige ein paar Resultate an, um auf der Rangliste zu erscheinen.',
+              'Schalte ein paar Resultate frei, um auf der Rangliste zu erscheinen.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),

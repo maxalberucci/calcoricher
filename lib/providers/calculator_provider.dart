@@ -19,6 +19,10 @@ class CalculatorProvider extends ChangeNotifier {
   /// The visible result — only available after calling reveal().
   String get displayResult => _state == CalcState.revealed ? _hiddenResult : '';
 
+  /// Das berechnete Resultat (auch vor dem Aufdecken) — wird beim Bezahlen für
+  /// den Verlauf benötigt und NICHT in der zensierten Anzeige verwendet.
+  String get rawResult => _hiddenResult;
+
   bool get isRevealed => _state == CalcState.revealed;
 
   /// True when result is calculated and ready to be paid for.
@@ -67,13 +71,22 @@ class CalculatorProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Lädt ein früheres Resultat als Startwert, um damit weiterzurechnen
+  /// (wie das Antippen eines Verlauf-Eintrags beim Windows-Rechner).
+  void loadResult(String value) {
+    _expression = value;
+    _hiddenResult = '';
+    _state = CalcState.idle;
+    notifyListeners();
+  }
+
   /// Evaluate and store result internally — does NOT show it.
   /// Returns true on success, false on parse error.
   bool evaluate() {
     if (_expression.isEmpty) return false;
     try {
       final expr = _expression.replaceAll('×', '*').replaceAll('÷', '/');
-      final exp = Parser().parse(expr);
+      final exp = ShuntingYardParser().parse(expr);
       final value = exp.evaluate(EvaluationType.REAL, ContextModel()) as double;
 
       if (value == value.truncateToDouble()) {

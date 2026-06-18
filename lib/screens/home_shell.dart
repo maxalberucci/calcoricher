@@ -24,6 +24,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       body: IndexedStack(
         index: _selectedIndex,
         children: _screens,

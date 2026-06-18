@@ -8,30 +8,30 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Lock to portrait.
+  // Hochformat erzwingen — Layout bleibt so auf jedem Gerät sauber.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()..init()),
-        ChangeNotifierProvider(create: (_) => CalculatorProvider()),
-      ],
-      child: const RichCalculatorApp(),
-    ),
-  );
+  runApp(const RichCalculatorApp());
 }
 
+/// Wurzel-Widget. Stellt die Provider bereit, damit die App selbst-enthaltend
+/// und testbar ist.
 class RichCalculatorApp extends StatelessWidget {
   const RichCalculatorApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Der Reichen-Rechner',
-      theme: AppTheme.darkGoldTheme,
-      home: const SplashScreen(),
-      debugShowCheckedModeBanner: false,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserProvider()..init()),
+        ChangeNotifierProvider(create: (_) => CalculatorProvider()),
+      ],
+      child: MaterialApp(
+        title: 'Der Reichen-Rechner',
+        theme: AppTheme.darkGoldTheme,
+        home: const SplashScreen(),
+        debugShowCheckedModeBanner: false,
+      ),
     );
   }
 }

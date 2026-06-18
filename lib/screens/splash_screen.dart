@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/luxury_background.dart';
 import 'home_shell.dart';
+import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -32,14 +34,26 @@ class _SplashScreenState extends State<SplashScreen>
 
     _ctrl.forward();
 
-    Future.delayed(const Duration(seconds: 3), _navigate);
+    _navigate();
   }
 
-  void _navigate() {
+  Future<void> _navigate() async {
+    // Mindestlaufzeit des Splash und Warten bis Daten geladen sind.
+    await Future.delayed(const Duration(milliseconds: 2500));
     if (!mounted) return;
+
+    final provider = context.read<UserProvider>();
+    while (!provider.isInitialized) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+    }
+
+    final target =
+        provider.hasUser ? const HomeShell() : const LoginScreen();
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const HomeShell(),
+        pageBuilder: (_, __, ___) => target,
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 600),
@@ -56,8 +70,9 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: FadeTransition(
+      backgroundColor: Colors.transparent,
+      body: LuxuryBackground(
+        child: FadeTransition(
         opacity: _fade,
         child: ScaleTransition(
           scale: _scale,
@@ -115,6 +130,7 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
           ),
+        ),
         ),
       ),
     );

@@ -1,90 +1,192 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/history_entry.dart';
 import '../models/user_model.dart';
 
+/// Verwaltet Konten (Fake-Login), die aktuelle Sitzung und die Rangliste.
+///
+/// Alle Daten liegen lokal in [SharedPreferences]. Ein Konto bündelt Passwort
+/// und Benutzerdaten; die Rangliste wird aus allen Konten abgeleitet.
 class UserProvider extends ChangeNotifier {
-  static const _keyCurrentUser = 'current_user';
-  static const _keyLeaderboard = 'leaderboard';
+  static const _keyAccounts = 'accounts_v2';
+  static const _keyCurrentEmail = 'current_email';
 
-  UserModel? _currentUser;
-  List<UserModel> _leaderboard = [];
+  final Map<String, _Account> _accounts = {};
+  String? _currentEmail;
+  bool _initialized = false;
 
-  UserModel? get currentUser => _currentUser;
-  List<UserModel> get leaderboard => List.unmodifiable(_leaderboard);
-  bool get hasUser => _currentUser != null;
+  bool get isInitialized => _initialized;
+  bool get hasUser =>
+      _currentEmail != null && _accounts.containsKey(_currentEmail);
+  UserModel? get currentUser => hasUser ? _accounts[_currentEmail]!.user : null;
 
-  /// Load persisted data on startup.
+  /// Alle Benutzer, absteigend nach ausgegebenem echten Geld sortiert.
+  List<UserModel> get leaderboard {
+    final list = _accounts.values.map((a) => a.user).toList()
+      ..sort((a, b) => b.totalSpentMinor.compareTo(a.totalSpentMinor));
+    return List.unmodifiable(list);
+  }
+
+  /// Lädt gespeicherte Konten und die letzte Sitzung beim Start.
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final userJson = prefs.getString(_keyCurrentUser);
-    if (userJson != null) {
-      _currentUser = UserModel.fromJson(jsonDecode(userJson));
+    final raw = prefs.getString(_keyAccounts);
+    if (raw != null) {
+      final Map<String, dynamic> decoded = jsonDecode(raw);
+      decoded.forEach((email, value) {
+        _accounts[email] = _Account.fromJson(value);
+      });
     }
 
-    final boardJson = prefs.getString(_keyLeaderboard);
-    if (boardJson != null) {
-      final List decoded = jsonDecode(boardJson);
-      _leaderboard = decoded.map((e) => UserModel.fromJson(e)).toList();
+    final savedEmail = prefs.getString(_keyCurrentEmail);
+    if (savedEmail != null && _accounts.containsKey(savedEmail)) {
+      _currentEmail = savedEmail;
     }
 
+    _initialized = true;
     notifyListeners();
   }
 
-  /// Create or update the current user with the given name.
-  Future<void> setUser(String name) async {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) return;
+  /// Registriert ein neues Konto und meldet es direkt an.
+  /// Gibt bei Erfolg `null` zurück, sonst eine Fehlermeldung.
+  Future<String?> register({
+    required String username,
+    required String email,
+    required String password,
+  }) async {
+    final name = username.trim();
+    final mail = email.trim().toLowerCase();
 
-    // Check if the user already exists in the leaderboard.
-    final existing = _leaderboard.where((u) => u.name == trimmed).firstOrNull;
-    _currentUser = existing ?? UserModel(name: trimmed);
+    if (name.isEmpty || mail.isEmpty || password.isEmpty) {
+      return 'Bitte fülle alle Felder aus.';
+    }
+    if (name.length < 2) return 'Der Name braucht mindestens 2 Zeichen.';
+    if (!mail.contains('@') || !mail.contains('.')) {
+      return 'Bitte gib eine gültige E-Mail ein.';
+    }
+    if (password.length < 4) {
+      return 'Das Passwort braucht mindestens 4 Zeichen.';
+    }
+    if (_accounts.containsKey(mail)) {
+      return 'Diese E-Mail ist bereits registriert.';
+    }
 
-    await _save();
-    notifyListeners();
-  }
-
-  /// Deduct coins for showing a result. Returns true on success.
-  Future<bool> spendCoins() async {
-    final user = _currentUser;
-    if (user == null) return false;
-
-    final price = user.nextPrice;
-    if (user.coins < price) return false;
-
-    _currentUser = user.copyWith(
-      coins: user.coins - price,
-      spentCoins: user.spentCoins + price,
-      resultsShown: user.resultsShown + 1,
+    final user = UserModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      username: name,
+      email: mail,
     );
+    _accounts[mail] = _Account(password: password, user: user);
+    _currentEmail = mail;
 
-    await _save();
+    await _persist();
     notifyListeners();
-    return true;
+    return null;
   }
 
-  Future<void> _save() async {
+  /// Meldet einen bestehenden Benutzer an.
+  /// Gibt bei Erfolg `null` zurück, sonst eine Fehlermeldung.
+  Future<String?> login({
+    required String email,
+    required String password,
+  }) async {
+    final mail = email.trim().toLowerCase();
+    final account = _accounts[mail];
+
+    if (account == null) return 'Kein Konto mit dieser E-Mail gefunden.';
+    if (account.password != password) return 'Falsches Passwort.';
+
+    _currentEmail = mail;
+    await _persist();
+    notifyListeners();
+    return null;
+  }
+
+  Future<void> logout() async {
+    _currentEmail = null;
     final prefs = await SharedPreferences.getInstance();
-    final user = _currentUser;
+    await prefs.remove(_keyCurrentEmail);
+    notifyListeners();
+  }
+
+  /// Aktualisiert Benutzername und/oder Avatar des aktuellen Benutzers.
+  Future<void> updateProfile({String? username, String? avatar}) async {
+    final user = currentUser;
     if (user == null) return;
 
-    await prefs.setString(_keyCurrentUser, jsonEncode(user.toJson()));
-    _updateLeaderboard(user);
-    await prefs.setString(
-      _keyLeaderboard,
-      jsonEncode(_leaderboard.map((u) => u.toJson()).toList()),
-    );
+    if (username != null && username.trim().isNotEmpty) {
+      user.username = username.trim();
+    }
+    if (avatar != null) user.avatar = avatar;
+
+    await _persist();
+    notifyListeners();
   }
 
-  void _updateLeaderboard(UserModel updated) {
-    final idx = _leaderboard.indexWhere((u) => u.name == updated.name);
-    if (idx >= 0) {
-      _leaderboard[idx] = updated;
-    } else {
-      _leaderboard.add(updated);
+  /// Verbucht eine erfolgreiche (echte) Zahlung: erhöht den ausgegebenen Betrag
+  /// und den Zähler (verdoppelt den nächsten Preis) und legt die freigeschaltete
+  /// Rechnung im Verlauf ab (neueste zuerst, max. 50).
+  Future<void> recordPurchase({
+    required int amountMinor,
+    required String expression,
+    required String result,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    user.totalSpentMinor += amountMinor;
+    user.unlockedResultsCount += 1;
+    user.history.insert(
+      0,
+      HistoryEntry(
+        expression: expression,
+        result: result,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      ),
+    );
+    if (user.history.length > 50) {
+      user.history.removeRange(50, user.history.length);
     }
-    // Sort by most coins spent, descending.
-    _leaderboard.sort((a, b) => b.spentCoins.compareTo(a.spentCoins));
+
+    await _persist();
+    notifyListeners();
   }
+
+  /// Löscht den Verlauf des aktuellen Benutzers.
+  Future<void> clearHistory() async {
+    final user = currentUser;
+    if (user == null) return;
+    user.history.clear();
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> _persist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final map = _accounts.map((k, v) => MapEntry(k, v.toJson()));
+    await prefs.setString(_keyAccounts, jsonEncode(map));
+    if (_currentEmail != null) {
+      await prefs.setString(_keyCurrentEmail, _currentEmail!);
+    }
+  }
+}
+
+/// Bündelt Passwort und Benutzerdaten eines Kontos (nur lokal, Fake-Login).
+class _Account {
+  final String password;
+  final UserModel user;
+
+  _Account({required this.password, required this.user});
+
+  Map<String, dynamic> toJson() => {
+        'password': password,
+        'user': user.toJson(),
+      };
+
+  factory _Account.fromJson(Map<String, dynamic> json) => _Account(
+        password: json['password'] as String,
+        user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
+      );
 }

@@ -2,12 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/calculator_provider.dart';
 import '../providers/user_provider.dart';
+import '../payments/payment_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/calculator_button.dart';
-import '../widgets/coin_display.dart';
+import '../widgets/history_drawer.dart';
+import '../widgets/locked_result.dart';
+import '../widgets/luxury_background.dart';
+import '../widgets/payment_sheet.dart';
 
-class CalculatorScreen extends StatelessWidget {
+class CalculatorScreen extends StatefulWidget {
   const CalculatorScreen({super.key});
+
+  @override
+  State<CalculatorScreen> createState() => _CalculatorScreenState();
+}
+
+class _CalculatorScreenState extends State<CalculatorScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
@@ -15,61 +26,73 @@ class CalculatorScreen extends StatelessWidget {
     final calc = context.watch<CalculatorProvider>();
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      key: _scaffoldKey,
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      // Von rechts ausklappbarer Verlauf (Icon oder Wischen vom rechten Rand).
+      endDrawer: HistoryDrawer(
+        onPick: (value) {
+          calc.loadResult(value);
+          Navigator.of(context).pop(); // Drawer schließen
+        },
+      ),
       appBar: AppBar(
         title: const Text('DER REICHEN-RECHNER'),
+        leading: user != null
+            ? IconButton(
+                icon: const Icon(Icons.history),
+                tooltip: 'Verlauf',
+                onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+              )
+            : null,
         actions: [
           if (user != null)
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: CoinDisplay(coins: user.coins),
+              child: _SpentBadge(amountMinor: user.totalSpentMinor),
             ),
         ],
       ),
-      body: Column(
-        children: [
-          // Tagline
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Text(
-              'Rechnen ist für Arme, Zahlen ist für Reiche',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontStyle: FontStyle.italic,
-                    letterSpacing: 0.5,
+      body: LuxuryBackground(
+        child: SafeArea(
+          // Auf Tablets/breiten Geräten zentriert begrenzen — kein Auseinanderziehen.
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                children: [
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: Text(
+                      'Rechnen ist für Arme, Zahlen ist für Reiche',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontStyle: FontStyle.italic,
+                            letterSpacing: 0.5,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-              textAlign: TextAlign.center,
+                  Expanded(flex: 2, child: _DisplayPanel(calc: calc)),
+                  if (user != null)
+                    _CostBar(calc: calc)
+                  else
+                    const _NoUserHint(),
+                  const Divider(height: 1, color: AppTheme.divider),
+                  Expanded(flex: 3, child: _ButtonGrid(calc: calc)),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
-
-          // Display area
-          Expanded(
-            flex: 2,
-            child: _DisplayPanel(calc: calc),
-          ),
-
-          // Cost + reveal button
-          if (user != null)
-            _CostBar(calc: calc)
-          else
-            _NoUserHint(),
-
-          const Divider(height: 1, color: AppTheme.divider),
-
-          // Calculator buttons
-          Expanded(
-            flex: 3,
-            child: _ButtonGrid(calc: calc),
-          ),
-
-          const SizedBox(height: 8),
-        ],
+        ),
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Display panel
+// Anzeige-Bereich (Rechnung + zensiertes/echtes Resultat)
 // ---------------------------------------------------------------------------
 class _DisplayPanel extends StatelessWidget {
   final CalculatorProvider calc;
@@ -81,90 +104,91 @@ class _DisplayPanel extends StatelessWidget {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.goldDark, width: 0.5),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppTheme.cardHigh, AppTheme.card],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.goldDark, width: 0.8),
+        boxShadow: AppTheme.goldGlow(opacity: 0.12, blur: 22),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // Expression
-          Text(
-            calc.expression,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 24,
-              letterSpacing: 1,
+          // Eingegebene Rechnung
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.bottomRight,
+              child: Text(
+                calc.expression,
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 28,
+                  letterSpacing: 1,
+                ),
+                maxLines: 1,
+                textAlign: TextAlign.end,
+              ),
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.end,
           ),
-          const SizedBox(height: 12),
-
-          // Result area
-          if (calc.isRevealed) ...[
-            const Divider(color: AppTheme.goldDark),
-            const SizedBox(height: 8),
-            Text(
-              '= ${calc.displayResult}',
-              style: const TextStyle(
-                color: AppTheme.gold,
-                fontSize: 46,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.end,
+          const SizedBox(height: 8),
+          const Divider(color: AppTheme.goldDark),
+          const SizedBox(height: 6),
+          // Überlaufsicher: skaliert bei Platzmangel herunter (kein Overflow).
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: _ResultLine(calc: calc),
             ),
-          ] else if (calc.state == CalcState.error) ...[
-            const Divider(color: AppTheme.goldDark),
-            const SizedBox(height: 8),
-            const Text(
-              'Ungültige Rechnung',
-              style: TextStyle(color: Colors.redAccent, fontSize: 20),
-            ),
-          ] else if (calc.isReadyToReveal) ...[
-            // Calculated but not yet paid — tease the user
-            const Divider(color: AppTheme.goldDark),
-            const SizedBox(height: 8),
-            const Text(
-              '= ???',
-              style: TextStyle(
-                color: AppTheme.divider,
-                fontSize: 46,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Drücke „Resultat anzeigen" um die Wahrheit zu erfahren',
-              style: TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 11,
-                fontStyle: FontStyle.italic,
-              ),
-              textAlign: TextAlign.end,
-            ),
-          ] else ...[
-            const Text(
-              '???',
-              style: TextStyle(
-                color: AppTheme.divider,
-                fontSize: 46,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+          ),
         ],
       ),
     );
   }
 }
 
+/// Zeigt das echte Resultat (nur nach Bezahlung), eine Fehlermeldung
+/// oder die einheitliche Zensur an.
+class _ResultLine extends StatelessWidget {
+  final CalculatorProvider calc;
+
+  const _ResultLine({required this.calc});
+
+  @override
+  Widget build(BuildContext context) {
+    // Hinweis: Die Rechtsausrichtung & das Herunterskalieren übernimmt der
+    // umschließende FittedBox in _DisplayPanel — hier nur intrinsische Widgets.
+    if (calc.state == CalcState.error) {
+      return const Text(
+        'Ungültige Rechnung',
+        style: TextStyle(color: Color(0xFFE05A5A), fontSize: 22),
+      );
+    }
+
+    if (calc.isRevealed) {
+      return Text(
+        '= ${calc.displayResult}',
+        style: const TextStyle(
+          color: AppTheme.gold,
+          fontSize: 52,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+
+    // Idle oder berechnet-aber-nicht-bezahlt → immer gleiche, edle Zensur.
+    return const LockedResult();
+  }
+}
+
 // ---------------------------------------------------------------------------
-// Cost bar + reveal button
+// Preis-Leiste + Bezahl-/Aufdeck-Button
 // ---------------------------------------------------------------------------
 class _CostBar extends StatelessWidget {
   final CalculatorProvider calc;
@@ -173,66 +197,56 @@ class _CostBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userProv = context.watch<UserProvider>();
-    final user = userProv.currentUser!;
-    final price = user.nextPrice;
-    final canAfford = user.canAffordNextResult;
+    final user = context.watch<UserProvider>().currentUser!;
+    final priceMinor = user.currentResultPriceMinor;
+    final revealed = calc.isRevealed;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
         children: [
-          // Price label
           RichText(
+            textAlign: TextAlign.center,
             text: TextSpan(
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              style: const TextStyle(
+                  fontSize: 13, color: AppTheme.textSecondary),
               children: [
                 const TextSpan(text: 'Dieses Resultat kostet dich nur '),
                 TextSpan(
-                  text: '$price Coins',
+                  text: PaymentConfig.format(priceMinor),
                   style: const TextStyle(
                     color: AppTheme.gold,
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
                   ),
                 ),
-                const TextSpan(text: ' 🪙'),
+                const TextSpan(text: ' 💳'),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          // Reveal button
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: canAfford && !calc.isRevealed
-                  ? () => _onReveal(context)
-                  : null,
+              onPressed: revealed ? null : () => _onReveal(context),
               icon: Icon(
-                canAfford ? Icons.lock_open_rounded : Icons.lock_rounded,
+                revealed ? Icons.check_circle : Icons.lock_open_rounded,
                 size: 18,
               ),
-              label: Text(
-                calc.isRevealed
-                    ? 'RESULTAT ANGEZEIGT ✓'
-                    : canAfford
-                        ? 'RESULTAT ANZEIGEN  ($price Coins)'
-                        : 'ZU WENIG COINS  (brauche $price)',
+              label: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  revealed
+                      ? 'RESULTAT FREIGESCHALTET'
+                      : 'FREISCHALTEN  (${PaymentConfig.format(priceMinor)})',
+                ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: calc.isRevealed
-                    ? AppTheme.goldDark
-                    : canAfford
-                        ? AppTheme.gold
-                        : AppTheme.card,
-                foregroundColor: calc.isRevealed
-                    ? AppTheme.textPrimary
-                    : canAfford
-                        ? Colors.black
-                        : Colors.redAccent,
-                side: (!canAfford && !calc.isRevealed)
-                    ? const BorderSide(color: Colors.redAccent)
-                    : null,
+                backgroundColor: revealed ? AppTheme.goldDark : AppTheme.gold,
+                foregroundColor:
+                    revealed ? AppTheme.textPrimary : Colors.black,
+                disabledBackgroundColor: AppTheme.goldDark,
+                disabledForegroundColor: AppTheme.textPrimary,
               ),
             ),
           ),
@@ -244,48 +258,65 @@ class _CostBar extends StatelessWidget {
   Future<void> _onReveal(BuildContext context) async {
     final calcProv = context.read<CalculatorProvider>();
     final userProv = context.read<UserProvider>();
+    final user = userProv.currentUser;
+    if (user == null) return;
 
-    // Evaluate if not already done.
+    // Bei Bedarf zuerst auswerten (Resultat bleibt zensiert).
     if (!calcProv.isReadyToReveal) {
-      final ok = calcProv.evaluate();
-      if (!ok) return; // Error shown in display.
+      if (!calcProv.evaluate()) return; // Fehler wird angezeigt.
     }
 
-    // Deduct coins first, then reveal.
-    final success = await userProv.spendCoins();
-    if (!context.mounted) return;
+    final amount = user.currentResultPriceMinor;
+    final expression = calcProv.expression;
+    final result = calcProv.rawResult;
 
-    if (success) {
-      calcProv.reveal();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Nicht genug Coins! Auch Reiche haben manchmal Grenzen. 💀',
-          ),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    }
+    final paid = await showPaymentSheet(
+      context,
+      amountMinor: amount,
+      description: expression,
+    );
+    if (!context.mounted || !paid) return;
+
+    await userProv.recordPurchase(
+      amountMinor: amount,
+      expression: expression,
+      result: result,
+    );
+    calcProv.reveal();
   }
 }
 
 // ---------------------------------------------------------------------------
-// Hint when no profile exists yet
+// Anzeige des insgesamt ausgegebenen Geldes (AppBar)
 // ---------------------------------------------------------------------------
-class _NoUserHint extends StatelessWidget {
+class _SpentBadge extends StatelessWidget {
+  final int amountMinor;
+
+  const _SpentBadge({required this.amountMinor});
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppTheme.cardHigh,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.gold, width: 1),
+        boxShadow: AppTheme.goldGlow(opacity: 0.2, blur: 10),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.person_add, color: AppTheme.gold, size: 16),
-          const SizedBox(width: 8),
+          const Icon(Icons.savings, size: 15, color: AppTheme.gold),
+          const SizedBox(width: 6),
           Text(
-            'Gehe zu „Profil" um deinen Namen einzugeben',
-            style: Theme.of(context).textTheme.bodyMedium,
+            PaymentConfig.format(amountMinor),
+            style: const TextStyle(
+              color: AppTheme.gold,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
       ),
@@ -294,7 +325,34 @@ class _NoUserHint extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Button grid
+// Hinweis, falls (theoretisch) kein Benutzer vorhanden ist
+// ---------------------------------------------------------------------------
+class _NoUserHint extends StatelessWidget {
+  const _NoUserHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.person_off, color: AppTheme.gold, size: 16),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              'Bitte melde dich an, um Resultate freizuschalten',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tasten-Raster
 // ---------------------------------------------------------------------------
 class _ButtonGrid extends StatelessWidget {
   final CalculatorProvider calc;
@@ -331,7 +389,7 @@ class _ButtonGrid extends StatelessWidget {
                 Expanded(
                   child: CalculatorButton(
                     label: '=',
-                    style: CalcButtonStyle.operator,
+                    style: CalcButtonStyle.equals,
                     onTap: calc.evaluate,
                   ),
                 ),
@@ -345,15 +403,15 @@ class _ButtonGrid extends StatelessWidget {
 
   Widget _buildRow(List<String> tokens) {
     return Row(
-      children: tokens.map((t) {
-        return Expanded(
-          child: CalculatorButton(
-            label: _label(t),
-            style: _style(t),
-            onTap: () => _onTap(t),
-          ),
-        );
-      }).toList(),
+      children: tokens
+          .map((t) => Expanded(
+                child: CalculatorButton(
+                  label: _label(t),
+                  style: _style(t),
+                  onTap: () => _onTap(t),
+                ),
+              ))
+          .toList(),
     );
   }
 
@@ -364,7 +422,6 @@ class _ButtonGrid extends StatelessWidget {
       case '⌫':
         calc.backspace();
       case '%':
-        // Append /100 to expression to calculate percentage.
         calc.addToken('/100');
       default:
         calc.addToken(token);
@@ -372,7 +429,7 @@ class _ButtonGrid extends StatelessWidget {
   }
 
   CalcButtonStyle _style(String t) {
-    if ('+-*/='.contains(t)) return CalcButtonStyle.operator;
+    if ('+-*/'.contains(t)) return CalcButtonStyle.operator;
     if (t == 'AC' || t == '⌫' || t == '%') return CalcButtonStyle.action;
     return CalcButtonStyle.number;
   }

@@ -46,6 +46,17 @@ flutter analyze          # Zeigt Code-Fehler
 flutter test             # Führt Tests aus (falls vorhanden)
 ```
 
+### Auf Linux-Desktop (in dieser Umgebung)
+```bash
+# Einmalig: Build-Tools installieren
+sudo apt install -y clang cmake ninja-build libgtk-3-dev pkg-config
+
+# Linux-Plattform anlegen (falls noch nicht vorhanden) und starten
+flutter create --platforms=linux .
+flutter pub get
+flutter run -d linux
+```
+
 ---
 
 ## 4. Projektstruktur
@@ -56,47 +67,61 @@ lib/
 ├── theme/
 │   └── app_theme.dart           # Dunkles Gold-Theme
 ├── models/
-│   └── user_model.dart          # Benutzer-Datenmodell
+│   └── user_model.dart          # Benutzer-Datenmodell (echtes Geld)
+├── payments/
+│   ├── payment_config.dart      # Währung, Basispreis, Backend-URL, Sandbox
+│   └── payment_service.dart     # Stripe-Checkout + Sandbox
 ├── providers/
-│   ├── user_provider.dart       # Coin-System + Speicherung
+│   ├── user_provider.dart       # Login/Konten + Speicherung
 │   └── calculator_provider.dart # Rechenlogik
 ├── screens/
-│   ├── splash_screen.dart       # Startscreen (3 Sekunden)
+│   ├── splash_screen.dart       # Startscreen → Login oder App
+│   ├── login_screen.dart        # Login / Registrierung
 │   ├── home_shell.dart          # Haupt-Navigation (Bottom Nav)
-│   ├── calculator_screen.dart   # Rechner + Coin-Button
-│   ├── profile_screen.dart      # Benutzerprofil
+│   ├── calculator_screen.dart   # Rechner + Freischalten
+│   ├── profile_screen.dart      # Profil (Avatar, Stats, Logout)
 │   └── leaderboard_screen.dart  # Rangliste
 └── widgets/
     ├── calculator_button.dart   # Stil-Button
-    └── coin_display.dart        # Coin-Anzeige in AppBar
+    ├── locked_result.dart       # Edle, einheitliche Zensur
+    ├── payment_sheet.dart       # Bezahl-Oberfläche
+    └── luxury_background.dart   # Premium-Hintergrund
+
+server/                          # Stripe-Backend (Node) – siehe server/README.md
 ```
 
 ---
 
 ## 5. Wie die App funktioniert
 
-1. **Startscreen** — 3 Sekunden Splash mit Luxus-Willkommen
-2. **Profil anlegen** — Gehe zu „Profil", gib deinen Namen ein
+1. **Startscreen** — kurzer Splash, danach Login (oder direkt App, wenn angemeldet)
+2. **Anmelden / Registrieren** — E-Mail + Passwort (lokal gespeichert)
 3. **Rechnen** — Tippe eine Rechnung ein, z.B. `2 + 2`
-4. **Resultat kaufen** — Drücke `=` und dann „RESULTAT ANZEIGEN"
-   - Das kostet Coins: 1 → 2 → 4 → 8 → 16 → ... (verdoppelt sich)
-5. **Rangliste** — Wer hat am meisten Coins ausgegeben?
+4. **Resultat freischalten** — `=` drücken, dann „FREISCHALTEN"
+   - Öffnet das Bezahl-Sheet (Karte · Apple Pay · Google Pay via Stripe)
+   - Das Resultat bleibt bis zur erfolgreichen Zahlung **zensiert**
+5. **Rangliste** — Wer hat am meisten **echtes Geld** ausgegeben?
 
 ---
 
-## 6. Coin-System
+## 6. Bezahlsystem (echtes Geld)
 
-| Resultat | Kosten |
-|----------|--------|
-| 1.       | 1 Coin |
-| 2.       | 2 Coins |
-| 3.       | 4 Coins |
-| 4.       | 8 Coins |
-| 5.       | 16 Coins |
-| 10.      | 512 Coins |
-| 20.      | 524'288 Coins |
+Der Preis verdoppelt sich pro freigeschaltetem Resultat (Basispreis × 1, ×2, ×4 …):
 
-Jeder Benutzer startet mit **100 Coins**.
+| Resultat | Preis (Basis = CHF 1.00) |
+|----------|--------------------------|
+| 1.       | CHF 1.00 |
+| 2.       | CHF 2.00 |
+| 3.       | CHF 4.00 |
+| 4.       | CHF 8.00 |
+| 5.       | CHF 16.00 |
+| 10.      | CHF 512.00 |
+
+- **Sandbox-Modus** (Standard): Zahlungen werden simuliert, es fließt **kein echtes
+  Geld** – ideal zum Testen.
+- **Echte Zahlungen**: Stripe-Backend aufsetzen (`server/README.md`) und in
+  `lib/payments/payment_config.dart` `sandbox = false` + `backendBaseUrl` setzen.
+  Währung und Basispreis sind dort ebenfalls konfigurierbar.
 
 ---
 

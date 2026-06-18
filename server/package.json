@@ -1,0 +1,13 @@
+{
+  "name": "reichen-rechner-backend",
+  "version": "1.0.0",
+  "description": "Stripe Checkout Backend für den Reichen-Rechner",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "stripe": "^16.0.0"
+  }
+}
