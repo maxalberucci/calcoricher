@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/profile_comment.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
+import 'report_comment.dart';
 import 'user_avatar.dart';
 
 String formatCommentTimestamp(int timestamp) {
@@ -142,6 +143,17 @@ class _OwnerCommentTileState extends State<OwnerCommentTile> {
                     ),
                   ),
                 ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Report',
+                icon: const Icon(Icons.flag_outlined,
+                    size: 18, color: AppTheme.textSecondary),
+                onPressed: () => showReportCommentDialog(
+                  context,
+                  ownerId: widget.ownerId,
+                  commentId: widget.comment.id,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),

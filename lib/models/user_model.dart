@@ -55,6 +55,9 @@ class UserModel {
   /// Anzahl bezahlter Namensänderungen (für Achievements).
   int usernameChanges;
 
+  /// Gesperrt durch einen Admin – ein gebanntes Konto kann sich nicht einloggen.
+  bool isBanned;
+
   /// Wie oft ein Operator in freigeschalteten Rechnungen vorkam ('+','-','*','/').
   Map<String, int> operatorCounts;
 
@@ -76,6 +79,7 @@ class UserModel {
     this.unreadCommentCount = 0,
     this.unreadReplyCount = 0,
     this.usernameChanges = 0,
+    this.isBanned = false,
     Map<String, int>? operatorCounts,
   })  : links = links ?? [],
         history = history ?? [],
@@ -110,6 +114,7 @@ class UserModel {
         'unreadCommentCount': unreadCommentCount,
         'unreadReplyCount': unreadReplyCount,
         'usernameChanges': usernameChanges,
+        'isBanned': isBanned,
         'operatorCounts': operatorCounts,
       };
 
@@ -142,6 +147,7 @@ class UserModel {
         unreadCommentCount: json['unreadCommentCount'] as int? ?? 0,
         unreadReplyCount: json['unreadReplyCount'] as int? ?? 0,
         usernameChanges: json['usernameChanges'] as int? ?? 0,
+        isBanned: json['isBanned'] as bool? ?? false,
         operatorCounts: (json['operatorCounts'] as Map?)
                 ?.map((k, v) => MapEntry(k as String, v as int)) ??
             {},

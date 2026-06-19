@@ -85,6 +85,103 @@ void main() {
     expect(wrong, isNotNull);
   });
 
+  test('Reporting und Admin-Tool funktionieren', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = UserProvider();
+    await provider.init();
+
+    // Admin-Konto (E-Mail aus AdminConfig) + zwei normale Nutzer.
+    await provider.register(
+        username: 'Admin', email: 'max.alberucci@gmail.com', password: 'pass');
+    final adminId = provider.currentUser!.id;
+    expect(provider.isAdmin, isTrue);
+
+    await provider.register(
+        username: 'Bob', email: 'bob@x.de', password: 'pass');
+    expect(provider.isAdmin, isFalse);
+    // Bob kommentiert das Admin-Profil.
+    await provider.addProfileComment(targetUserId: adminId, text: 'rude');
+    final commentId =
+        provider.userById(adminId)!.profileComments.first.id;
+
+    await provider.register(
+        username: 'Cara', email: 'cara@x.de', password: 'pass');
+    // Cara meldet den Kommentar (neu -> true, doppelt -> false).
+    expect(
+      await provider.reportProfileComment(
+          targetUserId: adminId, commentId: commentId, reason: 'Spam'),
+      isTrue,
+    );
+    expect(
+      await provider.reportProfileComment(
+          targetUserId: adminId, commentId: commentId, reason: 'Spam'),
+      isFalse,
+    );
+    expect(provider.reportedComments.length, 1);
+
+    // Nicht-Admin (Cara) darf nicht löschen -> Kommentar bleibt.
+    await provider.adminDeleteComment(
+        targetUserId: adminId, commentId: commentId);
+    expect(provider.userById(adminId)!.profileComments.length, 1);
+
+    // Admin sieht die Meldung und kann sie verwerfen.
+    await provider.login(email: 'max.alberucci@gmail.com', password: 'pass');
+    expect(provider.reportedCommentCount, 1);
+    await provider.adminDismissReports(
+        targetUserId: adminId, commentId: commentId);
+    expect(provider.reportedComments, isEmpty);
+    expect(provider.userById(adminId)!.profileComments.length, 1);
+
+    // Erneut melden, dann als Admin löschen -> Kommentar verschwindet.
+    await provider.login(email: 'cara@x.de', password: 'pass');
+    await provider.reportProfileComment(
+        targetUserId: adminId, commentId: commentId, reason: 'Harassment');
+    await provider.login(email: 'max.alberucci@gmail.com', password: 'pass');
+    await provider.adminDeleteComment(
+        targetUserId: adminId, commentId: commentId);
+    expect(provider.userById(adminId)!.profileComments, isEmpty);
+    expect(provider.reportedComments, isEmpty);
+  });
+
+  test('Admin kann Nutzer bannen und Statistiken stimmen', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = UserProvider();
+    await provider.init();
+
+    await provider.register(
+        username: 'Admin', email: 'max.alberucci@gmail.com', password: 'pass');
+    await provider.register(
+        username: 'Bob', email: 'bob@x.de', password: 'pass');
+    final bobId = provider.currentUser!.id;
+    await provider.register(
+        username: 'Cara', email: 'cara@x.de', password: 'pass');
+
+    // Cara (kein Admin) kann nicht bannen.
+    await provider.adminSetBanned(userId: bobId, banned: true);
+    expect(provider.userById(bobId)!.isBanned, isFalse);
+
+    // Admin bannt Bob -> Login schlägt fehl.
+    await provider.login(email: 'max.alberucci@gmail.com', password: 'pass');
+    await provider.adminSetBanned(userId: bobId, banned: true);
+    expect(provider.userById(bobId)!.isBanned, isTrue);
+    expect(await provider.login(email: 'bob@x.de', password: 'pass'),
+        isNotNull);
+
+    // Admins selbst können nicht gebannt werden.
+    await provider.login(email: 'max.alberucci@gmail.com', password: 'pass');
+    final adminId = provider.currentUser!.id;
+    await provider.adminSetBanned(userId: adminId, banned: true);
+    expect(provider.userById(adminId)!.isBanned, isFalse);
+
+    final stats = provider.adminStats;
+    expect(stats.users, 3);
+    expect(stats.banned, 1);
+
+    // Entbannen erlaubt Login wieder.
+    await provider.adminSetBanned(userId: bobId, banned: false);
+    expect(await provider.login(email: 'bob@x.de', password: 'pass'), isNull);
+  });
+
   test('Rang richtet sich nach ausgegebenem Geld', () {
     expect(rankForSpent(0).name, 'Pauper');
     expect(rankForSpent(10000).name, 'Patron'); //   100.00

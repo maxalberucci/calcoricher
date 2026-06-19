@@ -9,6 +9,7 @@ import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/luxury_background.dart';
 import '../widgets/profile_showcase.dart';
+import '../widgets/report_comment.dart';
 import '../widgets/user_avatar.dart';
 
 String _formatTimestamp(int timestamp) {
@@ -341,6 +342,29 @@ class _CommentComposerState extends State<_CommentComposer> {
   }
 }
 
+/// Kleiner „Melden"-Knopf am Kommentar (jeder darf melden).
+class _ReportButton extends StatelessWidget {
+  final String ownerId;
+  final String commentId;
+
+  const _ReportButton({required this.ownerId, required this.commentId});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      tooltip: 'Report',
+      icon: const Icon(Icons.flag_outlined,
+          size: 18, color: AppTheme.textSecondary),
+      onPressed: () => showReportCommentDialog(
+        context,
+        ownerId: ownerId,
+        commentId: commentId,
+      ),
+    );
+  }
+}
+
 class _ProfileCommentTile extends StatelessWidget {
   final ProfileComment comment;
   final UserModel profileOwner;
@@ -356,6 +380,9 @@ class _ProfileCommentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasReply =
         comment.ownerReply != null && comment.ownerReply!.trim().isNotEmpty;
+    final currentUser = context.watch<UserProvider>().currentUser;
+    final canReport =
+        currentUser != null && currentUser.id != comment.authorId;
 
     return Container(
       width: double.infinity,
@@ -400,6 +427,11 @@ class _ProfileCommentTile extends StatelessWidget {
                   ],
                 ),
               ),
+              if (canReport)
+                _ReportButton(
+                  ownerId: profileOwner.id,
+                  commentId: comment.id,
+                ),
             ],
           ),
           const SizedBox(height: 10),

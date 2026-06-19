@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/admin_config.dart';
 import '../models/history_entry.dart';
 import '../models/profile_comment.dart';
 import '../models/user_model.dart';
@@ -113,7 +114,7 @@ class UserProvider extends ChangeNotifier {
     }
 
     final user = UserModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: _generateUserId(),
       username: name,
       email: mail,
     );
@@ -136,6 +137,9 @@ class UserProvider extends ChangeNotifier {
 
     if (account == null) return 'No account found with this email.';
     if (!account.verifyPassword(password)) return 'Wrong password.';
+    if (account.user.isBanned) {
+      return 'This account has been banned.';
+    }
     if (account.needsPasswordMigration) {
       _accounts[mail] =
           _Account.withPassword(password: password, user: account.user);
@@ -302,6 +306,132 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- Reports & Admin -----------------------------------------------------
+
+  /// Ob das aktuell angemeldete Konto Admin-Rechte hat.
+  bool get isAdmin => AdminConfig.isAdmin(currentUser?.email);
+
+  /// Meldet einen Kommentar (jeder angemeldete Nutzer darf melden, einmal je
+  /// Kommentar). Gibt `true` zurück, wenn die Meldung neu gespeichert wurde.
+  Future<bool> reportProfileComment({
+    required String targetUserId,
+    required String commentId,
+    required String reason,
+  }) async {
+    final reporter = currentUser;
+    final target = userById(targetUserId);
+    if (reporter == null || target == null) return false;
+
+    for (final comment in target.profileComments) {
+      if (comment.id == commentId) {
+        if (comment.isReportedBy(reporter.id)) return false;
+        comment.reports.add(CommentReport(
+          reporterId: reporter.id,
+          reporterName: reporter.username,
+          reason: reason.trim(),
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        ));
+        await _persist();
+        notifyListeners();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Alle gemeldeten Kommentare (für das Admin-Tool), am meisten gemeldete
+  /// zuerst.
+  List<ReportedComment> get reportedComments {
+    final result = <ReportedComment>[];
+    for (final account in _accounts.values) {
+      final owner = account.user;
+      for (final comment in owner.profileComments) {
+        if (comment.reports.isNotEmpty) {
+          result.add(ReportedComment(profileOwner: owner, comment: comment));
+        }
+      }
+    }
+    result.sort(
+        (a, b) => b.comment.reports.length.compareTo(a.comment.reports.length));
+    return result;
+  }
+
+  /// Anzahl gemeldeter Kommentare (für ein Admin-Badge).
+  int get reportedCommentCount => isAdmin ? reportedComments.length : 0;
+
+  /// Alle Konten, absteigend nach ausgegebenem Geld (für das User-Management).
+  List<UserModel> get allUsers => leaderboardBy(LeaderboardSort.spent);
+
+  /// Aggregierte Kennzahlen für das Admin-Dashboard.
+  AdminStats get adminStats {
+    var comments = 0;
+    var reports = 0;
+    var spent = 0;
+    var results = 0;
+    var banned = 0;
+    for (final account in _accounts.values) {
+      final user = account.user;
+      comments += user.profileComments.length;
+      reports += user.profileComments.fold(0, (sum, c) => sum + c.reports.length);
+      spent += user.totalSpentMinor;
+      results += user.unlockedResultsCount;
+      if (user.isBanned) banned += 1;
+    }
+    return AdminStats(
+      users: _accounts.length,
+      comments: comments,
+      reports: reports,
+      totalSpentMinor: spent,
+      results: results,
+      banned: banned,
+    );
+  }
+
+  /// Admin: sperrt/entsperrt ein Konto. Admin-Konten können nicht gebannt werden.
+  Future<void> adminSetBanned({
+    required String userId,
+    required bool banned,
+  }) async {
+    if (!isAdmin) return;
+    final user = userById(userId);
+    if (user == null) return;
+    if (AdminConfig.isAdmin(user.email)) return; // Admins sind unantastbar.
+    user.isBanned = banned;
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Admin: löscht einen gemeldeten Kommentar endgültig.
+  Future<void> adminDeleteComment({
+    required String targetUserId,
+    required String commentId,
+  }) async {
+    if (!isAdmin) return;
+    final target = userById(targetUserId);
+    if (target == null) return;
+    target.profileComments.removeWhere((c) => c.id == commentId);
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Admin: verwirft die Meldungen eines Kommentars (Kommentar bleibt bestehen).
+  Future<void> adminDismissReports({
+    required String targetUserId,
+    required String commentId,
+  }) async {
+    if (!isAdmin) return;
+    final target = userById(targetUserId);
+    if (target == null) return;
+    for (final comment in target.profileComments) {
+      if (comment.id == commentId) {
+        comment.reports.clear();
+        break;
+      }
+    }
+    await _persist();
+    notifyListeners();
+  }
+
   /// Ändert den Benutzernamen gegen Bezahlung. Der Betrag zählt zum
   /// ausgegebenen Geld (Rangliste), aber NICHT zum Resultat-Zähler.
   /// Die Zahlung selbst läuft vorher über die UI (PaymentService).
@@ -366,6 +496,12 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  static final Random _idRandom = Random();
+
+  /// Eindeutige Benutzer-ID – auch bei mehreren Registrierungen pro Millisekunde.
+  String _generateUserId() =>
+      '${DateTime.now().microsecondsSinceEpoch}_${_idRandom.nextInt(1 << 31)}';
+
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
     final map = _accounts.map((k, v) => MapEntry(k, v.toJson()));
@@ -382,6 +518,33 @@ class ReplyNotification {
   final ProfileComment comment;
 
   const ReplyNotification({required this.profileOwner, required this.comment});
+}
+
+/// Ein gemeldeter Kommentar samt Profil, auf dem er steht (für das Admin-Tool).
+class ReportedComment {
+  final UserModel profileOwner;
+  final ProfileComment comment;
+
+  const ReportedComment({required this.profileOwner, required this.comment});
+}
+
+/// Aggregierte Kennzahlen für das Admin-Dashboard.
+class AdminStats {
+  final int users;
+  final int comments;
+  final int reports;
+  final int totalSpentMinor;
+  final int results;
+  final int banned;
+
+  const AdminStats({
+    required this.users,
+    required this.comments,
+    required this.reports,
+    required this.totalSpentMinor,
+    required this.results,
+    required this.banned,
+  });
 }
 
 /// Bündelt Passwort-Hash und Benutzerdaten eines Kontos (nur lokal, Fake-Login).

@@ -15,6 +15,7 @@ import '../widgets/payment_sheet.dart';
 import '../widgets/profile_showcase.dart';
 import '../widgets/purchase_celebration.dart';
 import '../widgets/user_avatar.dart';
+import 'admin_screen.dart';
 import 'login_screen.dart';
 import 'public_profile_screen.dart';
 
@@ -204,7 +205,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<UserProvider>().currentUser;
+    final provider = context.watch<UserProvider>();
+    final user = provider.currentUser;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -212,6 +214,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('MY PROFILE'),
         actions: [
+          if (provider.isAdmin)
+            _AdminButton(reportCount: provider.reportedCommentCount),
           IconButton(
             icon: const Icon(Icons.logout, color: AppTheme.gold),
             tooltip: 'Sign out',
@@ -430,6 +434,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// AppBar-Knopf zum Report-Tool (nur Admins), mit Badge für offene Meldungen.
+class _AdminButton extends StatelessWidget {
+  final int reportCount;
+  const _AdminButton({required this.reportCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Report center',
+      icon: Badge(
+        isLabelVisible: reportCount > 0,
+        backgroundColor: const Color(0xFFE05A5A),
+        label: Text('$reportCount'),
+        child: const Icon(Icons.shield_outlined, color: AppTheme.gold),
+      ),
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AdminScreen()),
       ),
     );
   }
