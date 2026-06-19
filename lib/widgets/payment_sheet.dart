@@ -3,6 +3,7 @@ import '../payments/payment_config.dart';
 import '../payments/payment_service.dart';
 import '../theme/app_theme.dart';
 import 'gold_text.dart';
+import 'luxury_button.dart';
 
 /// Öffnet das Bezahl-Sheet und gibt `true` zurück, wenn die Zahlung erfolgreich war.
 Future<bool> showPaymentSheet(
@@ -167,21 +168,13 @@ class _PaymentSheetState extends State<_PaymentSheet> {
           ],
 
           // Haupt-Button: Stripe Checkout.
-          ElevatedButton(
-            onPressed: _processing
-                ? null
-                : () => _run(_service.payForResult(
-                      amountMinor: widget.amountMinor,
-                      description: widget.description,
-                    )),
-            child: _processing
-                ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.black),
-                  )
-                : Text('PAY ${PaymentConfig.format(widget.amountMinor)}'),
+          LuxuryButton(
+            label: 'PAY ${PaymentConfig.format(widget.amountMinor)}',
+            busy: _processing,
+            onPressed: () => _run(_service.payForResult(
+              amountMinor: widget.amountMinor,
+              description: widget.description,
+            )),
           ),
 
           // Optionale Krypto-Zahlung.

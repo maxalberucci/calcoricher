@@ -9,16 +9,14 @@ import '../payments/payment_config.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/luxury_background.dart';
+import '../widgets/luxury_button.dart';
+import '../widgets/owner_comment_tile.dart';
 import '../widgets/payment_sheet.dart';
 import '../widgets/profile_showcase.dart';
+import '../widgets/purchase_celebration.dart';
 import '../widgets/user_avatar.dart';
 import 'login_screen.dart';
 import 'public_profile_screen.dart';
-
-/// Auswählbare Avatare (einfach, ohne Bild-Picker-Abhängigkeit).
-const List<String> _kAvatars = [
-  '👑', '💎', '🤵', '👸', '🏆', '💰', '🦁', '🚀', '🎩', '⭐'
-];
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -87,16 +85,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
     setState(() => _saving = false);
 
+    await showPurchaseCelebration(context, amountMinor: price);
+    if (!mounted) return;
     messenger.showSnackBar(
       SnackBar(
         content: Text('Renamed to $newName! 👑'),
         backgroundColor: AppTheme.goldDark,
       ),
     );
-  }
-
-  Future<void> _pickAvatar(String avatar) async {
-    await context.read<UserProvider>().updateProfile(avatar: avatar);
   }
 
   Future<void> _saveProfileDetails() async {
@@ -236,7 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           const SizedBox(height: 8),
                           UserAvatar(
-                            emoji: user.avatar,
+                            name: user.username,
                             imagePath: user.avatarPath,
                             size: 110,
                             bordered: true,
@@ -338,14 +334,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _AchievementsSection(user: user),
                           const SizedBox(height: 28),
 
-                          // Avatar-Auswahl
-                          const _SectionLabel('CHOOSE AVATAR'),
-                          const SizedBox(height: 10),
-                          _AvatarPicker(
-                            selected: user.avatar,
-                            onPick: _pickAvatar,
-                          ),
-                          const SizedBox(height: 24),
+                          // Kommentare auf dem eigenen Profil (mit Antwort)
+                          _ProfileCommentsCard(user: user),
+                          const SizedBox(height: 28),
 
                           // Profil personalisieren
                           const _SectionLabel('PROFILE STYLE'),
@@ -410,20 +401,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 14),
-                                ElevatedButton(
-                                  onPressed: _saving ? null : _save,
-                                  child: _saving
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.black,
-                                          ),
-                                        )
-                                      : Text(
-                                          'RENAME  (${PaymentConfig.format(PaymentConfig.usernameChangePriceMinor)})',
-                                        ),
+                                LuxuryButton(
+                                  onPressed: _save,
+                                  busy: _saving,
+                                  icon: Icons.workspace_premium,
+                                  label:
+                                      'RENAME  (${PaymentConfig.format(PaymentConfig.usernameChangePriceMinor)})',
                                 ),
                               ],
                             ),
@@ -605,42 +588,6 @@ class _SignOutButton extends StatelessWidget {
   }
 }
 
-class _AvatarPicker extends StatelessWidget {
-  final String selected;
-  final ValueChanged<String> onPick;
-
-  const _AvatarPicker({required this.selected, required this.onPick});
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: _kAvatars.map((a) {
-        final isSelected = a == selected;
-        return GestureDetector(
-          onTap: () => onPick(a),
-          child: Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppTheme.gold.withValues(alpha: 0.15)
-                  : AppTheme.card,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isSelected ? AppTheme.gold : AppTheme.divider,
-                width: isSelected ? 2 : 0.5,
-              ),
-            ),
-            child: Center(child: Text(a, style: const TextStyle(fontSize: 26))),
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
 /// Aktueller Rang mit Fortschrittsbalken zum nächsten Rang.
 class _RankCard extends StatelessWidget {
   final int spentMinor;
@@ -762,6 +709,59 @@ class _AchievementsSection extends StatelessWidget {
               .map((a) => _AchievementBadge(achievement: a, user: user))
               .toList(),
         ),
+      ],
+    );
+  }
+}
+
+/// Liste der auf dem eigenen Profil eingegangenen Kommentare inkl. Antwort-Feld.
+class _ProfileCommentsCard extends StatelessWidget {
+  final UserModel user;
+  const _ProfileCommentsCard({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final comments = user.profileComments;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const _SectionLabel('COMMENTS'),
+            const Spacer(),
+            Text(
+              '${comments.length}',
+              style: const TextStyle(
+                color: AppTheme.gold,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (comments.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.divider),
+            ),
+            child: const Text(
+              'No comments on your profile yet.',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          )
+        else
+          for (final comment in comments)
+            Padding(
+              key: ValueKey(comment.id),
+              padding: const EdgeInsets.only(bottom: 12),
+              child: OwnerCommentTile(comment: comment, ownerId: user.id),
+            ),
       ],
     );
   }

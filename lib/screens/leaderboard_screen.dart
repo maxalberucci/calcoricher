@@ -157,7 +157,7 @@ class _PodiumBlock extends StatelessWidget {
       child: Column(
         children: [
           UserAvatar(
-            emoji: user.avatar,
+            name: user.username,
             imagePath: user.avatarPath,
             size: 34,
           ),
@@ -294,7 +294,7 @@ class _RankTile extends StatelessWidget {
         title: Row(
           children: [
             UserAvatar(
-              emoji: user.avatar,
+              name: user.username,
               imagePath: user.avatarPath,
               size: 28,
             ),

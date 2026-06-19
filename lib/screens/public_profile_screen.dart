@@ -269,6 +269,7 @@ class _CommentComposerState extends State<_CommentComposer> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
     await context.read<UserProvider>().addProfileComment(
           targetUserId: widget.targetUserId,
@@ -277,6 +278,14 @@ class _CommentComposerState extends State<_CommentComposer> {
     if (!mounted) return;
     _controller.clear();
     setState(() => _saving = false);
+    FocusScope.of(context).unfocus();
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Comment posted ✓'),
+        backgroundColor: AppTheme.goldDark,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -356,7 +365,7 @@ class _ProfileCommentTile extends StatelessWidget {
           Row(
             children: [
               UserAvatar(
-                emoji: comment.authorAvatar,
+                name: comment.authorName,
                 imagePath: comment.authorAvatarPath,
                 size: 34,
               ),
@@ -438,7 +447,7 @@ class _OwnerReplyBox extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           UserAvatar(
-            emoji: profileOwner.avatar,
+            name: profileOwner.username,
             imagePath: profileOwner.avatarPath,
             size: 28,
           ),
@@ -520,6 +529,7 @@ class _OwnerReplyComposerState extends State<_OwnerReplyComposer> {
     final reply = _controller.text.trim();
     if (reply.isEmpty) return;
 
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
     await context.read<UserProvider>().replyToProfileComment(
           targetUserId: widget.targetUserId,
@@ -528,6 +538,14 @@ class _OwnerReplyComposerState extends State<_OwnerReplyComposer> {
         );
     if (!mounted) return;
     setState(() => _saving = false);
+    FocusScope.of(context).unfocus();
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Reply sent ✓'),
+        backgroundColor: AppTheme.goldDark,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   @override

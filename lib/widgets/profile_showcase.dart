@@ -71,7 +71,7 @@ class ProfileShowcase extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               UserAvatar(
-                emoji: user.avatar,
+                name: user.username,
                 imagePath: user.avatarPath,
                 size: 58,
                 bordered: true,

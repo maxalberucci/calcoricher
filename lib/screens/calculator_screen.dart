@@ -9,7 +9,9 @@ import '../widgets/gold_text.dart';
 import '../widgets/history_drawer.dart';
 import '../widgets/locked_result.dart';
 import '../widgets/luxury_background.dart';
+import '../widgets/luxury_button.dart';
 import '../widgets/payment_sheet.dart';
+import '../widgets/purchase_celebration.dart';
 
 class CalculatorScreen extends StatefulWidget {
   const CalculatorScreen({super.key});
@@ -233,30 +235,12 @@ class _CostBar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: revealed ? null : () => _onReveal(context),
-              icon: Icon(
-                revealed ? Icons.check_circle : Icons.lock_open_rounded,
-                size: 18,
-              ),
-              label: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  revealed
-                      ? 'RESULT UNLOCKED'
-                      : 'UNLOCK  (${PaymentConfig.format(priceMinor)})',
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: revealed ? AppTheme.goldDark : AppTheme.gold,
-                foregroundColor:
-                    revealed ? AppTheme.textPrimary : Colors.black,
-                disabledBackgroundColor: AppTheme.goldDark,
-                disabledForegroundColor: AppTheme.textPrimary,
-              ),
-            ),
+          LuxuryButton(
+            onPressed: revealed ? null : () => _onReveal(context),
+            icon: revealed ? Icons.check_circle : Icons.lock_open_rounded,
+            label: revealed
+                ? 'RESULT UNLOCKED'
+                : 'UNLOCK  (${PaymentConfig.format(priceMinor)})',
           ),
         ],
       ),
@@ -291,6 +275,8 @@ class _CostBar extends StatelessWidget {
       result: result,
     );
     calcProv.reveal();
+    if (!context.mounted) return;
+    await showPurchaseCelebration(context, amountMinor: amount);
   }
 }
 

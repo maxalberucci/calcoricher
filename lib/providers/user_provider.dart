@@ -130,24 +130,6 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Aktualisiert Benutzername und/oder Emoji-Avatar des aktuellen Benutzers.
-  /// Die Wahl eines Emojis entfernt ein zuvor gewähltes Foto.
-  Future<void> updateProfile({String? username, String? avatar}) async {
-    final user = currentUser;
-    if (user == null) return;
-
-    if (username != null && username.trim().isNotEmpty) {
-      user.username = username.trim();
-    }
-    if (avatar != null) {
-      user.avatar = avatar;
-      user.avatarPath = null;
-    }
-
-    await _persist();
-    notifyListeners();
-  }
-
   /// Speichert die frei personalisierbaren Profilinhalte.
   Future<void> updateProfileDetails({
     String? profileTitle,
@@ -212,7 +194,20 @@ class UserProvider extends ChangeNotifier {
     if (target.profileComments.length > 100) {
       target.profileComments.removeRange(100, target.profileComments.length);
     }
+    target.unreadCommentCount += 1;
 
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Anzahl noch nicht angesehener Kommentare des aktuellen Benutzers (Badge).
+  int get unreadCommentCount => currentUser?.unreadCommentCount ?? 0;
+
+  /// Setzt das Kommentar-Badge des aktuellen Benutzers zurück (alles gesehen).
+  Future<void> markProfileCommentsSeen() async {
+    final user = currentUser;
+    if (user == null || user.unreadCommentCount == 0) return;
+    user.unreadCommentCount = 0;
     await _persist();
     notifyListeners();
   }
@@ -234,12 +229,51 @@ class UserProvider extends ChangeNotifier {
 
     for (final comment in target.profileComments) {
       if (comment.id == commentId) {
+        final isNewReply = comment.ownerReply == null;
         comment.ownerReply = trimmed;
         comment.ownerReplyTimestamp = DateTime.now().millisecondsSinceEpoch;
+        // Den Verfasser des Kommentars über die (erste) Antwort benachrichtigen.
+        final author = userById(comment.authorId);
+        if (isNewReply && author != null && author.id != owner.id) {
+          author.unreadReplyCount += 1;
+        }
         break;
       }
     }
 
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Anzahl noch nicht angesehener Antworten auf eigene Kommentare (Badge).
+  int get unreadReplyCount => currentUser?.unreadReplyCount ?? 0;
+
+  /// Antworten auf die Kommentare des aktuellen Benutzers (neueste zuerst).
+  List<ReplyNotification> get repliesToMyComments {
+    final me = currentUser;
+    if (me == null) return const [];
+
+    final result = <ReplyNotification>[];
+    for (final account in _accounts.values) {
+      final owner = account.user;
+      for (final comment in owner.profileComments) {
+        if (comment.authorId == me.id &&
+            comment.ownerReply != null &&
+            comment.ownerReply!.trim().isNotEmpty) {
+          result.add(ReplyNotification(profileOwner: owner, comment: comment));
+        }
+      }
+    }
+    result.sort((a, b) => (b.comment.ownerReplyTimestamp ?? 0)
+        .compareTo(a.comment.ownerReplyTimestamp ?? 0));
+    return result;
+  }
+
+  /// Setzt das Antwort-Badge des aktuellen Benutzers zurück (alles gesehen).
+  Future<void> markRepliesSeen() async {
+    final user = currentUser;
+    if (user == null || user.unreadReplyCount == 0) return;
+    user.unreadReplyCount = 0;
     await _persist();
     notifyListeners();
   }
@@ -313,6 +347,14 @@ class UserProvider extends ChangeNotifier {
       await prefs.setString(_keyCurrentEmail, _currentEmail!);
     }
   }
+}
+
+/// Eine Antwort des Profil-Besitzers auf einen eigenen Kommentar.
+class ReplyNotification {
+  final UserModel profileOwner;
+  final ProfileComment comment;
+
+  const ReplyNotification({required this.profileOwner, required this.comment});
 }
 
 /// Bündelt Passwort-Hash und Benutzerdaten eines Kontos (nur lokal, Fake-Login).

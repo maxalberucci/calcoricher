@@ -2,17 +2,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-/// Rundes Profilbild: zeigt das gewählte Foto, sonst den Emoji-Avatar.
-/// Bei fehlender Bilddatei wird automatisch auf das Emoji zurückgefallen.
+/// Rundes Profilbild: zeigt das gewählte Foto, sonst die Initiale des Namens.
+/// Bei fehlender Bilddatei wird automatisch auf die Initiale zurückgefallen.
 class UserAvatar extends StatelessWidget {
-  final String emoji;
+  final String name;
   final String? imagePath;
   final double size;
   final bool bordered;
 
   const UserAvatar({
     super.key,
-    required this.emoji,
+    required this.name,
     this.imagePath,
     this.size = 40,
     this.bordered = false,
@@ -29,11 +29,11 @@ class UserAvatar extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.cover,
-              // Datei gelöscht/verschoben -> Emoji als Fallback.
-              errorBuilder: (_, __, ___) => _emoji(),
+              // Datei gelöscht/verschoben -> Initiale als Fallback.
+              errorBuilder: (_, __, ___) => _initial(),
             ),
           )
-        : _emoji();
+        : _initial();
 
     if (!bordered) {
       return SizedBox(width: size, height: size, child: Center(child: content));
@@ -52,7 +52,26 @@ class UserAvatar extends StatelessWidget {
     );
   }
 
-  Widget _emoji() => Center(
-        child: Text(emoji, style: TextStyle(fontSize: size * 0.5)),
+  String get _letter {
+    final trimmed = name.trim();
+    return trimmed.isEmpty ? '?' : trimmed.characters.first.toUpperCase();
+  }
+
+  Widget _initial() => Container(
+        width: size,
+        height: size,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppTheme.cardHigh,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          _letter,
+          style: TextStyle(
+            color: AppTheme.gold,
+            fontSize: size * 0.42,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       );
 }

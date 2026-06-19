@@ -43,6 +43,12 @@ class UserModel {
   /// Öffentliche Kommentare auf dem Profil (neueste zuerst).
   List<ProfileComment> profileComments;
 
+  /// Noch nicht angesehene neue Kommentare auf dem eigenen Profil (Badge).
+  int unreadCommentCount;
+
+  /// Noch nicht angesehene Antworten auf eigene Kommentare (Badge).
+  int unreadReplyCount;
+
   /// Anzahl bezahlter Namensänderungen (für Achievements).
   int usernameChanges;
 
@@ -63,6 +69,8 @@ class UserModel {
     this.unlockedResultsCount = 0,
     List<HistoryEntry>? history,
     List<ProfileComment>? profileComments,
+    this.unreadCommentCount = 0,
+    this.unreadReplyCount = 0,
     this.usernameChanges = 0,
     Map<String, int>? operatorCounts,
   })  : links = links ?? [],
@@ -94,6 +102,8 @@ class UserModel {
         'unlockedResultsCount': unlockedResultsCount,
         'history': history.map((e) => e.toJson()).toList(),
         'profileComments': profileComments.map((e) => e.toJson()).toList(),
+        'unreadCommentCount': unreadCommentCount,
+        'unreadReplyCount': unreadReplyCount,
         'usernameChanges': usernameChanges,
         'operatorCounts': operatorCounts,
       };
@@ -123,6 +133,8 @@ class UserModel {
                 ?.map((e) => ProfileComment.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],
+        unreadCommentCount: json['unreadCommentCount'] as int? ?? 0,
+        unreadReplyCount: json['unreadReplyCount'] as int? ?? 0,
         usernameChanges: json['usernameChanges'] as int? ?? 0,
         operatorCounts: (json['operatorCounts'] as Map?)
                 ?.map((k, v) => MapEntry(k as String, v as int)) ??
