@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../legal/legal_meta.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gold_text.dart';
 import '../widgets/luxury_background.dart';
 import 'admin_screen.dart';
 import 'home_shell.dart';
+import 'legal/legal_document_screen.dart';
 
 /// Login- und Registrierungs-Screen (lokaler Fake-Login).
 class LoginScreen extends StatefulWidget {
@@ -24,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isRegister = false;
   bool _busy = false;
   bool _obscure = true;
+  bool _acceptedTerms = false;
 
   @override
   void dispose() {
@@ -35,6 +38,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_isRegister && !_acceptedTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bitte akzeptiere AGB und Datenschutzerklärung.'),
+          backgroundColor: Color(0xFFE05A5A),
+        ),
+      );
+      return;
+    }
     setState(() => _busy = true);
 
     final provider = context.read<UserProvider>();
@@ -185,7 +197,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
+
+                      // Pflicht-Zustimmung bei der Registrierung.
+                      if (_isRegister) ...[
+                        _TermsAcceptance(
+                          value: _acceptedTerms,
+                          onChanged: (v) =>
+                              setState(() => _acceptedTerms = v ?? false),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
 
                       ElevatedButton(
                         onPressed: _busy ? null : _submit,
@@ -212,6 +234,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               : 'No account yet? Register now',
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      const _LegalFooter(),
                     ],
                   ),
                 ),
@@ -222,4 +246,115 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+/// Pflicht-Checkbox bei der Registrierung mit antippbaren Links zu AGB und
+/// Datenschutzerklärung.
+class _TermsAcceptance extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool?> onChanged;
+
+  const _TermsAcceptance({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 24,
+          height: 24,
+          child: Checkbox(
+            value: value,
+            onChanged: onChanged,
+            activeColor: AppTheme.gold,
+            checkColor: Colors.black,
+            side: const BorderSide(color: AppTheme.goldDark),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 12.5,
+                height: 1.4,
+              ),
+              children: [
+                const TextSpan(text: 'Ich akzeptiere die '),
+                _docSpan(context, 'AGB', LegalMeta.terms),
+                const TextSpan(text: ' und die '),
+                _docSpan(context, 'Datenschutzerklärung', LegalMeta.privacy),
+                const TextSpan(text: '.'),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dezente Fußzeile mit Links zu allen Rechtstexten.
+class _LegalFooter extends StatelessWidget {
+  const _LegalFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _footerLink(context, LegalMeta.privacy),
+        const _Dot(),
+        _footerLink(context, LegalMeta.terms),
+        const _Dot(),
+        _footerLink(context, LegalMeta.cookies),
+      ],
+    );
+  }
+}
+
+class _Dot extends StatelessWidget {
+  const _Dot();
+  @override
+  Widget build(BuildContext context) => const Text(
+        ' · ',
+        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+      );
+}
+
+Widget _footerLink(BuildContext context, LegalDocument doc) {
+  return GestureDetector(
+    onTap: () => LegalDocumentScreen.open(context, doc),
+    child: Text(
+      doc.title,
+      style: const TextStyle(
+        color: AppTheme.gold,
+        fontSize: 12,
+        decoration: TextDecoration.underline,
+        decorationColor: AppTheme.goldDark,
+      ),
+    ),
+  );
+}
+
+InlineSpan _docSpan(BuildContext context, String label, LegalDocument doc) {
+  return WidgetSpan(
+    alignment: PlaceholderAlignment.baseline,
+    baseline: TextBaseline.alphabetic,
+    child: GestureDetector(
+      onTap: () => LegalDocumentScreen.open(context, doc),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppTheme.gold,
+          fontSize: 12.5,
+          decoration: TextDecoration.underline,
+          decorationColor: AppTheme.goldDark,
+        ),
+      ),
+    ),
+  );
 }

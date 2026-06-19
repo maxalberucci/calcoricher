@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'legal/consent_service.dart';
 import 'providers/calculator_provider.dart';
 import 'providers/user_provider.dart';
 import 'screens/splash_screen.dart';
@@ -25,6 +26,7 @@ class RichCalculatorApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()..init()),
         ChangeNotifierProvider(create: (_) => CalculatorProvider()),
+        ChangeNotifierProvider(create: (_) => ConsentService()..init()),
       ],
       child: MaterialApp(
         title: 'Calcoricher',

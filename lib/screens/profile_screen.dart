@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../gamification/achievements.dart';
 import '../gamification/ranks.dart';
+import '../legal/legal_meta.dart';
 import '../models/user_model.dart';
 import '../payments/payment_config.dart';
 import '../providers/user_provider.dart';
@@ -16,6 +17,8 @@ import '../widgets/profile_showcase.dart';
 import '../widgets/purchase_celebration.dart';
 import '../widgets/user_avatar.dart';
 import 'admin_screen.dart';
+import 'legal/consent_screen.dart';
+import 'legal/legal_document_screen.dart';
 import 'login_screen.dart';
 import 'public_profile_screen.dart';
 
@@ -413,6 +416,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
+
+                          // Rechtliches
+                          const _SectionLabel('LEGAL'),
+                          const SizedBox(height: 8),
+                          const _LegalSection(),
+                          const SizedBox(height: 24),
+
                           const Divider(color: AppTheme.divider, height: 1),
                           const SizedBox(height: 16),
                           _SignOutButton(onTap: _logout),
@@ -890,6 +900,81 @@ class _NextPriceCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Rechtliche Links (Datenschutz, AGB, Cookies) und das Datenschutz-Center.
+class _LegalSection extends StatelessWidget {
+  const _LegalSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.goldDark, width: 0.5),
+      ),
+      child: Column(
+        children: [
+          for (final doc in LegalMeta.all) ...[
+            _LegalRow(
+              icon: doc.icon,
+              label: doc.title,
+              onTap: () => LegalDocumentScreen.open(context, doc),
+            ),
+            const Divider(color: AppTheme.divider, height: 1, indent: 14),
+          ],
+          _LegalRow(
+            icon: Icons.tune,
+            label: 'Datenschutz-Einstellungen',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ConsentScreen()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegalRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _LegalRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: AppTheme.gold),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                size: 20, color: AppTheme.textSecondary),
+          ],
+        ),
       ),
     );
   }

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../legal/consent_service.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gold_text.dart';
 import '../widgets/luxury_background.dart';
 import 'admin_screen.dart';
 import 'home_shell.dart';
+import 'legal/consent_screen.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -45,14 +47,21 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     final provider = context.read<UserProvider>();
-    while (!provider.isInitialized) {
+    final consent = context.read<ConsentService>();
+    while (!provider.isInitialized || !consent.isInitialized) {
       await Future.delayed(const Duration(milliseconds: 100));
       if (!mounted) return;
     }
 
-    final target = provider.hasUser
+    final Widget destination = provider.hasUser
         ? (provider.isAdmin ? const AdminScreen() : const HomeShell())
         : const LoginScreen();
+
+    // Vor der Nutzung muss der aktuellen Datenschutz-/AGB-Fassung zugestimmt
+    // werden; danach geht es zum eigentlichen Ziel weiter.
+    final target = consent.hasConsented
+        ? destination
+        : ConsentScreen(next: destination);
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
