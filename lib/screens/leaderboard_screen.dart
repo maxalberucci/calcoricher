@@ -10,13 +10,44 @@ import '../widgets/luxury_background.dart';
 import '../widgets/user_avatar.dart';
 import 'public_profile_screen.dart';
 
-class LeaderboardScreen extends StatelessWidget {
+/// Liefert den für das Sortierkriterium relevanten Anzeigewert eines Nutzers.
+String _metricValue(UserModel user, LeaderboardSort sort) {
+  switch (sort) {
+    case LeaderboardSort.spent:
+      return PaymentConfig.format(user.totalSpentMinor);
+    case LeaderboardSort.results:
+      return '${user.unlockedResultsCount}';
+    case LeaderboardSort.highestUnlock:
+      return PaymentConfig.format(user.highestUnlockMinor);
+  }
+}
+
+String _metricLabel(LeaderboardSort sort) {
+  switch (sort) {
+    case LeaderboardSort.spent:
+      return 'spent';
+    case LeaderboardSort.results:
+      return 'results';
+    case LeaderboardSort.highestUnlock:
+      return 'top unlock';
+  }
+}
+
+class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
   @override
+  State<LeaderboardScreen> createState() => _LeaderboardScreenState();
+}
+
+class _LeaderboardScreenState extends State<LeaderboardScreen> {
+  LeaderboardSort _sort = LeaderboardSort.spent;
+
+  @override
   Widget build(BuildContext context) {
-    final leaderboard = context.watch<UserProvider>().leaderboard;
-    final currentId = context.watch<UserProvider>().currentUser?.id;
+    final provider = context.watch<UserProvider>();
+    final leaderboard = provider.leaderboardBy(_sort);
+    final currentId = provider.currentUser?.id;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -31,20 +62,13 @@ class LeaderboardScreen extends StatelessWidget {
                   ? const _EmptyState()
                   : Column(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                          child: Text(
-                            'The bravest pay the most.\nAre they also the smartest? 🤔',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(fontStyle: FontStyle.italic),
-                          ),
+                        _SortSelector(
+                          sort: _sort,
+                          onChanged: (s) => setState(() => _sort = s),
                         ),
-                        const Divider(color: AppTheme.divider),
+                        const Divider(color: AppTheme.divider, height: 1),
                         if (leaderboard.length >= 2)
-                          _Podium(leaderboard: leaderboard),
+                          _Podium(leaderboard: leaderboard, sort: _sort),
                         Expanded(
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(
@@ -55,6 +79,7 @@ class LeaderboardScreen extends StatelessWidget {
                               return _RankTile(
                                 rank: i + 1,
                                 user: user,
+                                sort: _sort,
                                 isCurrentUser: user.id == currentId,
                               );
                             },
@@ -70,13 +95,70 @@ class LeaderboardScreen extends StatelessWidget {
   }
 }
 
+/// Auswahl des Sortierkriteriums (Betrag · Resultate · Top-Unlock).
+class _SortSelector extends StatelessWidget {
+  final LeaderboardSort sort;
+  final ValueChanged<LeaderboardSort> onChanged;
+
+  const _SortSelector({required this.sort, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: SegmentedButton<LeaderboardSort>(
+        showSelectedIcon: false,
+        segments: const [
+          ButtonSegment(
+            value: LeaderboardSort.spent,
+            icon: Icon(Icons.payments, size: 16),
+            label: Text('Spent'),
+          ),
+          ButtonSegment(
+            value: LeaderboardSort.results,
+            icon: Icon(Icons.lock_open, size: 16),
+            label: Text('Results'),
+          ),
+          ButtonSegment(
+            value: LeaderboardSort.highestUnlock,
+            icon: Icon(Icons.rocket_launch, size: 16),
+            label: Text('Top'),
+          ),
+        ],
+        selected: {sort},
+        onSelectionChanged: (set) => onChanged(set.first),
+        style: ButtonStyle(
+          textStyle: WidgetStatePropertyAll(
+            AppTheme.sans(const TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w600)),
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? Colors.black
+                : AppTheme.textSecondary,
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppTheme.gold
+                : Colors.transparent,
+          ),
+          side: const WidgetStatePropertyAll(
+            BorderSide(color: AppTheme.goldDark),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Podium für die Top 3
 // ---------------------------------------------------------------------------
 class _Podium extends StatelessWidget {
   final List<UserModel> leaderboard;
+  final LeaderboardSort sort;
 
-  const _Podium({required this.leaderboard});
+  const _Podium({required this.leaderboard, required this.sort});
 
   @override
   Widget build(BuildContext context) {
@@ -91,28 +173,16 @@ class _Podium extends StatelessWidget {
         children: [
           if (second != null)
             Expanded(
-              child: _PodiumBlock(
-                user: second,
-                rank: 2,
-                height: 74,
-              ),
+              child: _PodiumBlock(user: second, rank: 2, height: 74, sort: sort),
             )
           else
             const Expanded(child: SizedBox()),
           Expanded(
-            child: _PodiumBlock(
-              user: first,
-              rank: 1,
-              height: 104,
-            ),
+            child: _PodiumBlock(user: first, rank: 1, height: 104, sort: sort),
           ),
           if (third != null)
             Expanded(
-              child: _PodiumBlock(
-                user: third,
-                rank: 3,
-                height: 58,
-              ),
+              child: _PodiumBlock(user: third, rank: 3, height: 58, sort: sort),
             )
           else
             const Expanded(child: SizedBox()),
@@ -126,11 +196,13 @@ class _PodiumBlock extends StatelessWidget {
   final UserModel user;
   final int rank;
   final double height;
+  final LeaderboardSort sort;
 
   const _PodiumBlock({
     required this.user,
     required this.rank,
     required this.height,
+    required this.sort,
   });
 
   String get _medal => rank == 1
@@ -197,7 +269,7 @@ class _PodiumBlock extends StatelessWidget {
                     // Der Spitzenreiter bekommt den poliertem Metall-Look.
                     child: rank == 1
                         ? GoldText(
-                            PaymentConfig.format(user.totalSpentMinor),
+                            _metricValue(user, sort),
                             glow: true,
                             style: const TextStyle(
                               fontSize: 16,
@@ -205,7 +277,7 @@ class _PodiumBlock extends StatelessWidget {
                             ),
                           )
                         : Text(
-                            PaymentConfig.format(user.totalSpentMinor),
+                            _metricValue(user, sort),
                             style: TextStyle(
                               color: _color,
                               fontSize: 16,
@@ -214,7 +286,7 @@ class _PodiumBlock extends StatelessWidget {
                           ),
                   ),
                   Text(
-                    'spent',
+                    _metricLabel(sort),
                     style: TextStyle(
                         color: _color.withValues(alpha: 0.8), fontSize: 9),
                   ),
@@ -234,11 +306,13 @@ class _PodiumBlock extends StatelessWidget {
 class _RankTile extends StatelessWidget {
   final int rank;
   final UserModel user;
+  final LeaderboardSort sort;
   final bool isCurrentUser;
 
   const _RankTile({
     required this.rank,
     required this.user,
+    required this.sort,
     required this.isCurrentUser,
   });
 
@@ -340,7 +414,7 @@ class _RankTile extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                PaymentConfig.format(user.totalSpentMinor),
+                _metricValue(user, sort),
                 style: const TextStyle(
                   color: AppTheme.gold,
                   fontSize: 18,
@@ -348,9 +422,9 @@ class _RankTile extends StatelessWidget {
                 ),
               ),
             ),
-            const Text(
-              'spent',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 9),
+            Text(
+              _metricLabel(sort),
+              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 9),
             ),
           ],
         ),

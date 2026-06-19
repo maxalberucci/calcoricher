@@ -40,13 +40,13 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         },
       ),
       appBar: AppBar(
-        title: const GoldText(
+        title: GoldText(
           'CALCORICHER',
-          style: TextStyle(
+          style: AppTheme.serif(const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             letterSpacing: 3,
-          ),
+          )),
         ),
         leading: user != null
             ? IconButton(
@@ -185,10 +185,10 @@ class _ResultLine extends StatelessWidget {
       return GoldText(
         '= ${calc.displayResult}',
         glow: true,
-        style: const TextStyle(
+        style: AppTheme.serif(const TextStyle(
           fontSize: 52,
           fontWeight: FontWeight.bold,
-        ),
+        )),
       );
     }
 

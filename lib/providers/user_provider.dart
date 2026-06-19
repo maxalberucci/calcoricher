@@ -7,6 +7,9 @@ import '../models/history_entry.dart';
 import '../models/profile_comment.dart';
 import '../models/user_model.dart';
 
+/// Sortierkriterien der Rangliste.
+enum LeaderboardSort { spent, results, highestUnlock }
+
 /// Verwaltet Konten (Fake-Login), die aktuelle Sitzung und die Rangliste.
 ///
 /// Alle Daten liegen lokal in [SharedPreferences]. Ein Konto bündelt Passwort
@@ -31,10 +34,31 @@ class UserProvider extends ChangeNotifier {
     return null;
   }
 
-  /// Alle Benutzer, absteigend nach ausgegebenem echten Geld sortiert.
-  List<UserModel> get leaderboard {
-    final list = _accounts.values.map((a) => a.user).toList()
-      ..sort((a, b) => b.totalSpentMinor.compareTo(a.totalSpentMinor));
+  /// Alle Benutzer, absteigend nach ausgegebenem echten Geld sortiert
+  /// (Standard-Rangliste, treibt auch den Rang).
+  List<UserModel> get leaderboard => leaderboardBy(LeaderboardSort.spent);
+
+  /// Rangliste nach dem gewählten Kriterium (absteigend).
+  List<UserModel> leaderboardBy(LeaderboardSort sort) {
+    int compare(UserModel a, UserModel b) {
+      switch (sort) {
+        case LeaderboardSort.spent:
+          return b.totalSpentMinor.compareTo(a.totalSpentMinor);
+        case LeaderboardSort.results:
+          final byResults =
+              b.unlockedResultsCount.compareTo(a.unlockedResultsCount);
+          return byResults != 0
+              ? byResults
+              : b.totalSpentMinor.compareTo(a.totalSpentMinor);
+        case LeaderboardSort.highestUnlock:
+          final byUnlock = b.highestUnlockMinor.compareTo(a.highestUnlockMinor);
+          return byUnlock != 0
+              ? byUnlock
+              : b.totalSpentMinor.compareTo(a.totalSpentMinor);
+      }
+    }
+
+    final list = _accounts.values.map((a) => a.user).toList()..sort(compare);
     return List.unmodifiable(list);
   }
 
@@ -308,6 +332,9 @@ class UserProvider extends ChangeNotifier {
 
     user.totalSpentMinor += amountMinor;
     user.unlockedResultsCount += 1;
+    if (amountMinor > user.highestUnlockMinor) {
+      user.highestUnlockMinor = amountMinor;
+    }
     user.history.insert(
       0,
       HistoryEntry(

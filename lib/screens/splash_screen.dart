@@ -87,16 +87,16 @@ class _SplashScreenState extends State<SplashScreen>
                   const Text('👑', style: TextStyle(fontSize: 72)),
                   const SizedBox(height: 24),
                   // App name
-                  const GoldText(
+                  GoldText(
                     'CALCORICHER',
                     textAlign: TextAlign.center,
                     glow: true,
-                    style: TextStyle(
+                    style: AppTheme.serif(const TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 4,
                       height: 1.2,
-                    ),
+                    )),
                   ),
                   const SizedBox(height: 16),
                   // Gold divider mit weichem Verlauf an den Enden.

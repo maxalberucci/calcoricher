@@ -1,8 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Luxuriöses Dunkel-Gold-Theme für den Reichen-Rechner.
 class AppTheme {
   AppTheme._();
+
+  /// Edle Serifenschrift für Marke, Titel und das große Resultat.
+  static TextStyle serif([TextStyle? style]) =>
+      GoogleFonts.playfairDisplay(textStyle: style);
+
+  /// Klare, moderne Grundschrift für Fließtext und Labels.
+  static TextStyle sans([TextStyle? style]) =>
+      GoogleFonts.manrope(textStyle: style);
+
+  /// Grundschrift Manrope, große Titel als Playfair-Serife – Farben bleiben.
+  static TextTheme get _textTheme {
+    const base = TextTheme(
+      displayLarge: TextStyle(color: gold, fontWeight: FontWeight.bold),
+      displayMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
+      headlineMedium: TextStyle(color: gold, fontWeight: FontWeight.w600),
+      bodyLarge: TextStyle(color: textPrimary),
+      bodyMedium: TextStyle(color: textSecondary),
+      labelLarge: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+    );
+    return GoogleFonts.manropeTextTheme(base).copyWith(
+      displayLarge: serif(base.displayLarge),
+      displayMedium: serif(base.displayMedium),
+      headlineMedium: serif(base.headlineMedium),
+    );
+  }
 
   // Gold-Palette
   static const Color gold = Color(0xFFD4AF37);
@@ -81,17 +107,17 @@ class AppTheme {
       onSurface: textPrimary,
       error: Color(0xFFE05A5A),
     ),
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       foregroundColor: gold,
       elevation: 0,
       centerTitle: true,
-      titleTextStyle: TextStyle(
+      titleTextStyle: serif(const TextStyle(
         color: gold,
         fontSize: 20,
         fontWeight: FontWeight.bold,
         letterSpacing: 2,
-      ),
+      )),
     ),
     cardTheme: CardThemeData(
       color: card,
@@ -117,14 +143,7 @@ class AppTheme {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(foregroundColor: gold),
     ),
-    textTheme: const TextTheme(
-      displayLarge: TextStyle(color: gold, fontWeight: FontWeight.bold),
-      displayMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
-      headlineMedium: TextStyle(color: gold, fontWeight: FontWeight.w600),
-      bodyLarge: TextStyle(color: textPrimary),
-      bodyMedium: TextStyle(color: textSecondary),
-      labelLarge: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-    ),
+    textTheme: _textTheme,
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: cardHigh,

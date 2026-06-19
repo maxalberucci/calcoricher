@@ -37,6 +37,9 @@ class UserModel {
   /// Anzahl freigeschalteter Resultate (treibt die Preisverdopplung).
   int unlockedResultsCount;
 
+  /// Höchster für ein einzelnes Resultat bezahlter Betrag (Minor-Units).
+  int highestUnlockMinor;
+
   /// Verlauf der freigeschalteten Rechnungen (neueste zuerst).
   List<HistoryEntry> history;
 
@@ -67,6 +70,7 @@ class UserModel {
     this.profileAccentIndex = 0,
     this.totalSpentMinor = 0,
     this.unlockedResultsCount = 0,
+    this.highestUnlockMinor = 0,
     List<HistoryEntry>? history,
     List<ProfileComment>? profileComments,
     this.unreadCommentCount = 0,
@@ -100,6 +104,7 @@ class UserModel {
         'profileAccentIndex': profileAccentIndex,
         'totalSpentMinor': totalSpentMinor,
         'unlockedResultsCount': unlockedResultsCount,
+        'highestUnlockMinor': highestUnlockMinor,
         'history': history.map((e) => e.toJson()).toList(),
         'profileComments': profileComments.map((e) => e.toJson()).toList(),
         'unreadCommentCount': unreadCommentCount,
@@ -125,6 +130,7 @@ class UserModel {
         profileAccentIndex: json['profileAccentIndex'] as int? ?? 0,
         totalSpentMinor: json['totalSpentMinor'] as int? ?? 0,
         unlockedResultsCount: json['unlockedResultsCount'] as int? ?? 0,
+        highestUnlockMinor: json['highestUnlockMinor'] as int? ?? 0,
         history: (json['history'] as List?)
                 ?.map((e) => HistoryEntry.fromJson(e as Map<String, dynamic>))
                 .toList() ??

@@ -97,6 +97,12 @@ class PublicProfileScreen extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    _ProfileStatCard(
+                      icon: Icons.rocket_launch,
+                      label: 'Highest unlock',
+                      value: PaymentConfig.format(visibleUser.highestUnlockMinor),
+                    ),
                     const SizedBox(height: 24),
                     _ProfileCommentsSection(
                       user: visibleUser,

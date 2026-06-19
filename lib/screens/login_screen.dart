@@ -85,15 +85,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Text('👑', style: TextStyle(fontSize: 64),
                           textAlign: TextAlign.center),
                       const SizedBox(height: 16),
-                      const GoldText(
+                      GoldText(
                         'CALCORICHER',
                         textAlign: TextAlign.center,
                         glow: true,
-                        style: TextStyle(
+                        style: AppTheme.serif(const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 4,
-                        ),
+                        )),
                       ),
                       const SizedBox(height: 6),
                       Text(

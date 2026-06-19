@@ -322,6 +322,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     value: '${user.unlockedResultsCount}',
                                     icon: '🔓'),
                               ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _StatCard(
+                                    label: 'Top unlock',
+                                    value: PaymentConfig.format(
+                                        user.highestUnlockMinor),
+                                    icon: '🚀'),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 12),
