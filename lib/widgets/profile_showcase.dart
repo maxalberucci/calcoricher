@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../gamification/ranks.dart';
 import '../models/user_model.dart';
 import '../theme/app_theme.dart';
+import '../utils/url_safety.dart';
 import 'user_avatar.dart';
 
 const List<ProfileAccent> kProfileAccents = [
@@ -208,8 +209,22 @@ class _ProfileLinkChip extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     final uri = Uri.tryParse(link);
-    if (uri == null) return;
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    // Sicherheit: ausschließlich http(s) extern öffnen. Schützt vor
+    // gefährlichen Schemata (file:, tel:, javascript:, App-Deeplinks …), die
+    // über manipulierte/gespeicherte Links untergeschoben werden könnten.
+    if (uri == null || !UrlSafety.isSafeWebUri(uri)) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This link is not a valid web address.')),
+      );
+      return;
+    }
+    var opened = false;
+    try {
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      opened = false;
+    }
     if (!context.mounted || opened) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Could not open this link.')),

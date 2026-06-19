@@ -73,9 +73,17 @@ class StripeCheckoutService implements PaymentService {
       final sessionId = data['id'] as String;
       final url = data['url'] as String;
 
+      // Sicherheit: Nur eine echte https-Checkout-URL öffnen (schützt vor einem
+      // fehlkonfigurierten/manipulierten Backend, das ein anderes Schema liefert).
+      final checkoutUri = Uri.tryParse(url);
+      if (checkoutUri == null || checkoutUri.scheme != 'https') {
+        return const PaymentResult(
+            PaymentStatus.failed, 'Invalid checkout URL from server.');
+      }
+
       // 2) Hosted Checkout öffnen (dort wählt der Nutzer Karte/Wallet).
       final launched = await launchUrl(
-        Uri.parse(url),
+        checkoutUri,
         mode: LaunchMode.externalApplication,
       );
       if (!launched) {
@@ -131,8 +139,13 @@ class StripeCheckoutService implements PaymentService {
   }
 
   Future<PaymentResult> _openCrypto() async {
+    final cryptoUri = Uri.tryParse(PaymentConfig.cryptoCheckoutUrl);
+    if (cryptoUri == null || cryptoUri.scheme != 'https') {
+      return const PaymentResult(
+          PaymentStatus.failed, 'Invalid crypto checkout URL.');
+    }
     final ok = await launchUrl(
-      Uri.parse(PaymentConfig.cryptoCheckoutUrl),
+      cryptoUri,
       mode: LaunchMode.externalApplication,
     );
     // Bei externem Hosted-Crypto-Checkout kann der Client den Abschluss nicht

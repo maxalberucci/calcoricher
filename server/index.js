@@ -19,7 +19,42 @@ const requiredEnv = (name) => {
 
 const stripe = Stripe(requiredEnv('STRIPE_SECRET_KEY'));
 const app = express();
+// Express-Version nicht preisgeben und IP hinter genau einem Proxy
+// (ngrok/Railway/Render …) korrekt ermitteln – wichtig fürs Rate-Limit.
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '16kb' }));
+
+// Einfaches In-Memory-Rate-Limit pro IP (ohne zusätzliche Abhängigkeit).
+// Verhindert Missbrauch/Kosten durch massenhaftes Anlegen von Sessions.
+const rateWindowMs = 60_000;
+const rateMax = Number.parseInt(process.env.RATE_LIMIT_PER_MIN || '30', 10);
+const rateHits = new Map(); // ip -> { count, resetAt }
+
+app.use((req, res, next) => {
+  const now = Date.now();
+  const ip = req.ip || 'unknown';
+  const entry = rateHits.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateHits.set(ip, { count: 1, resetAt: now + rateWindowMs });
+    return next();
+  }
+  entry.count += 1;
+  if (entry.count > rateMax) {
+    return res
+      .status(429)
+      .json({ error: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
+  }
+  next();
+});
+
+// Abgelaufene Einträge regelmäßig entfernen, damit die Map nicht wächst.
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateHits) {
+    if (now > entry.resetAt) rateHits.delete(ip);
+  }
+}, rateWindowMs).unref();
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
@@ -123,6 +158,20 @@ app.get('/session-status', async (req, res) => {
     console.error('session-status failed', e);
     res.status(500).json({ error: 'Status konnte nicht geprüft werden.' });
   }
+});
+
+// Zentraler Fehler-Handler: saubere Antworten statt Stacktraces/Crashes
+// (z. B. bei ungültigem JSON oder zu großem Body).
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Anfrage zu gross.' });
+  }
+  if (err.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+    return res.status(400).json({ error: 'Ungültiges JSON.' });
+  }
+  console.error('Unhandled error', err);
+  return res.status(500).json({ error: 'Serverfehler.' });
 });
 
 const port = process.env.PORT || 4242;

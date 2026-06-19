@@ -7,9 +7,36 @@ import '../config/admin_config.dart';
 import '../models/history_entry.dart';
 import '../models/profile_comment.dart';
 import '../models/user_model.dart';
+import '../utils/url_safety.dart';
 
 /// Sortierkriterien der Rangliste.
 enum LeaderboardSort { spent, results, highestUnlock }
+
+/// Serverseitige Längen-Obergrenzen (Defense-in-Depth). Die UI begrenzt
+/// Eingaben bereits, aber der Provider ist die eigentliche Vertrauensgrenze:
+/// gespeicherte Daten könnten lokal manipuliert oder über künftige Codepfade
+/// gesetzt werden. Diese Caps verhindern Storage-/UI-Missbrauch durch
+/// überlange Inhalte.
+class _Limits {
+  static const int username = 80;
+  static const int profileTitle = 120;
+  static const int bio = 1000;
+  static const int link = 300;
+  static const int maxLinks = 4;
+  static const int comment = 500;
+  static const int reply = 500;
+}
+
+/// Schneidet einen getrimmten String hart auf [maxCodeUnits] zu, ohne ein
+/// Surrogatpaar in der Mitte zu zerteilen (sonst entstünde ungültiges JSON).
+String _clampText(String value, int maxCodeUnits) {
+  final trimmed = value.trim();
+  if (trimmed.length <= maxCodeUnits) return trimmed;
+  var end = maxCodeUnits;
+  final unit = trimmed.codeUnitAt(end - 1);
+  if (unit >= 0xD800 && unit <= 0xDBFF) end -= 1; // High-Surrogate -> 1 zurück.
+  return trimmed.substring(0, end);
+}
 
 /// Verwaltet Konten (Fake-Login), die aktuelle Sitzung und die Rangliste.
 ///
@@ -96,7 +123,7 @@ class UserProvider extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    final name = username.trim();
+    final name = _clampText(username, _Limits.username);
     final mail = email.trim().toLowerCase();
 
     if (name.isEmpty || mail.isEmpty || password.isEmpty) {
@@ -169,16 +196,18 @@ class UserProvider extends ChangeNotifier {
     if (user == null) return;
 
     if (profileTitle != null) {
-      user.profileTitle = profileTitle.trim();
+      user.profileTitle = _clampText(profileTitle, _Limits.profileTitle);
     }
     if (bio != null) {
-      user.bio = bio.trim();
+      user.bio = _clampText(bio, _Limits.bio);
     }
     if (links != null) {
+      // Nur sichere http(s)-Links speichern (siehe [UrlSafety]).
       user.links = links
-          .map((link) => link.trim())
-          .where((link) => link.isNotEmpty)
-          .take(4)
+          .map(UrlSafety.normalize)
+          .whereType<String>()
+          .map((link) => _clampText(link, _Limits.link))
+          .take(_Limits.maxLinks)
           .toList();
     }
     if (profileAccentIndex != null) {
@@ -204,7 +233,7 @@ class UserProvider extends ChangeNotifier {
   }) async {
     final author = currentUser;
     final target = userById(targetUserId);
-    final trimmed = text.trim();
+    final trimmed = _clampText(text, _Limits.comment);
     if (author == null || target == null || trimmed.isEmpty) return;
 
     target.profileComments.insert(
@@ -247,7 +276,7 @@ class UserProvider extends ChangeNotifier {
   }) async {
     final owner = currentUser;
     final target = userById(targetUserId);
-    final trimmed = reply.trim();
+    final trimmed = _clampText(reply, _Limits.reply);
     if (owner == null ||
         target == null ||
         owner.id != target.id ||
@@ -438,7 +467,7 @@ class UserProvider extends ChangeNotifier {
   Future<void> changeUsername(String newUsername, int amountMinor) async {
     final user = currentUser;
     if (user == null) return;
-    final name = newUsername.trim();
+    final name = _clampText(newUsername, _Limits.username);
     if (name.isEmpty) return;
 
     user.username = name;
@@ -549,14 +578,21 @@ class AdminStats {
 
 /// Bündelt Passwort-Hash und Benutzerdaten eines Kontos (nur lokal, Fake-Login).
 class _Account {
+  static const String algoPbkdf2 = 'pbkdf2';
+  static const String algoSha256 = 'sha256';
+
   final String passwordHash;
   final String passwordSalt;
+  final String passwordAlgo;
+  final int iterations;
   final String? legacyPassword;
   final UserModel user;
 
   _Account({
     required this.passwordHash,
     required this.passwordSalt,
+    required this.passwordAlgo,
+    required this.iterations,
     required this.user,
     this.legacyPassword,
   });
@@ -567,38 +603,62 @@ class _Account {
   }) {
     final salt = _PasswordHasher.createSalt();
     return _Account(
-      passwordHash: _PasswordHasher.hash(password, salt),
+      passwordHash: _PasswordHasher.hashPbkdf2(password, salt),
       passwordSalt: salt,
+      passwordAlgo: algoPbkdf2,
+      iterations: _PasswordHasher.iterations,
       user: user,
     );
   }
 
-  bool get needsPasswordMigration => legacyPassword != null;
+  /// Konten mit Klartext-Passwort oder altem SHA-256 werden beim nächsten
+  /// erfolgreichen Login auf PBKDF2 angehoben.
+  bool get needsPasswordMigration =>
+      legacyPassword != null || passwordAlgo != algoPbkdf2;
 
   bool verifyPassword(String password) {
-    if (legacyPassword != null) return legacyPassword == password;
-    return passwordHash == _PasswordHasher.hash(password, passwordSalt);
+    if (legacyPassword != null) {
+      return _PasswordHasher.constantTimeEquals(legacyPassword!, password);
+    }
+    final computed = passwordAlgo == algoPbkdf2
+        ? _PasswordHasher.hashPbkdf2(password, passwordSalt, rounds: iterations)
+        : _PasswordHasher.hashLegacySha256(password, passwordSalt);
+    return _PasswordHasher.constantTimeEquals(computed, passwordHash);
   }
 
   Map<String, dynamic> toJson() => {
         'passwordHash': passwordHash,
         'passwordSalt': passwordSalt,
+        'passwordAlgo': passwordAlgo,
+        'iterations': iterations,
         'user': user.toJson(),
       };
 
   factory _Account.fromJson(Map<String, dynamic> json) {
     final hash = json['passwordHash'] as String?;
     final salt = json['passwordSalt'] as String?;
+    final algo = json['passwordAlgo'] as String?;
+    final iterations =
+        json['iterations'] as int? ?? _PasswordHasher.iterations;
     final legacyPassword = json['password'] as String?;
     final user = UserModel.fromJson(json['user'] as Map<String, dynamic>);
 
-    if (hash != null && salt != null) {
-      return _Account(passwordHash: hash, passwordSalt: salt, user: user);
+    if (hash != null && salt != null && hash.isNotEmpty && salt.isNotEmpty) {
+      return _Account(
+        passwordHash: hash,
+        passwordSalt: salt,
+        // Fehlender Marker = altes Schema (salted SHA-256).
+        passwordAlgo: algo ?? algoSha256,
+        iterations: iterations,
+        user: user,
+      );
     }
 
     return _Account(
       passwordHash: '',
       passwordSalt: '',
+      passwordAlgo: algoSha256,
+      iterations: iterations,
       legacyPassword: legacyPassword,
       user: user,
     );
@@ -608,13 +668,81 @@ class _Account {
 class _PasswordHasher {
   static final Random _random = Random.secure();
 
+  /// Iterationen für PBKDF2. Bewusst hoch, um Brute-Force teuer zu machen
+  /// (die Hashes liegen lokal im Klartext-Storage).
+  static const int iterations = 120000;
+  static const int _keyLengthBytes = 32;
+
   static String createSalt() {
     final bytes = List<int>.generate(16, (_) => _random.nextInt(256));
     return base64UrlEncode(bytes);
   }
 
-  static String hash(String password, String salt) {
-    final bytes = utf8.encode('$salt:$password');
-    return sha256.convert(bytes).toString();
+  /// Aktuelles Verfahren: PBKDF2-HMAC-SHA256 (key-stretching).
+  static String hashPbkdf2(
+    String password,
+    String salt, {
+    int rounds = iterations,
+  }) {
+    final key = _pbkdf2(
+      utf8.encode(password),
+      utf8.encode(salt),
+      rounds,
+      _keyLengthBytes,
+    );
+    return base64Encode(key);
+  }
+
+  /// Altes Verfahren (nur noch zur Verifikation/Migration bestehender Konten).
+  static String hashLegacySha256(String password, String salt) =>
+      sha256.convert(utf8.encode('$salt:$password')).toString();
+
+  /// Konstant-zeitiger Vergleich, um Timing-Seitenkanäle zu vermeiden.
+  static bool constantTimeEquals(String a, String b) {
+    if (a.length != b.length) return false;
+    var diff = 0;
+    for (var i = 0; i < a.length; i++) {
+      diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return diff == 0;
+  }
+
+  static List<int> _pbkdf2(
+    List<int> password,
+    List<int> salt,
+    int rounds,
+    int keyLen,
+  ) {
+    final hmac = Hmac(sha256, password);
+    final out = <int>[];
+    var block = 1;
+    while (out.length < keyLen) {
+      out.addAll(_pbkdf2Block(hmac, salt, rounds, block));
+      block++;
+    }
+    return out.sublist(0, keyLen);
+  }
+
+  static List<int> _pbkdf2Block(
+    Hmac hmac,
+    List<int> salt,
+    int rounds,
+    int blockIndex,
+  ) {
+    final indexBytes = [
+      (blockIndex >> 24) & 0xff,
+      (blockIndex >> 16) & 0xff,
+      (blockIndex >> 8) & 0xff,
+      blockIndex & 0xff,
+    ];
+    var u = hmac.convert([...salt, ...indexBytes]).bytes;
+    final result = List<int>.from(u);
+    for (var i = 1; i < rounds; i++) {
+      u = hmac.convert(u).bytes;
+      for (var j = 0; j < result.length; j++) {
+        result[j] ^= u[j];
+      }
+    }
+    return result;
   }
 }

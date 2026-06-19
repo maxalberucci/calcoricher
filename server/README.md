@@ -54,6 +54,16 @@ Der Server akzeptiert nur konfigurierte Beträge: `BASE_PRICE_MINOR * 2^n`
 bis `MAX_RESULT_UNLOCKS` sowie `USERNAME_CHANGE_PRICE_MINOR`. Die App darf
 Preise anzeigen, aber nicht frei bestimmen, was Stripe abrechnet.
 
+## Sicherheit
+
+- **Rate-Limit:** Pro IP sind standardmäßig 30 Anfragen/Minute erlaubt
+  (`429` darüber). Anpassbar über `RATE_LIMIT_PER_MIN`. Hinter einem Proxy
+  (ngrok/Railway/Render …) wird `trust proxy` genutzt, damit die echte IP zählt.
+- **Beträge:** Es werden ausschließlich die konfigurierten Beträge akzeptiert –
+  die App kann nicht frei bestimmen, was Stripe abrechnet.
+- **Robustheit:** Ungültiges JSON/zu große Bodies werden sauber abgewiesen,
+  die Express-Version wird nicht preisgegeben (`x-powered-by` aus).
+
 ## Hinweis zu App Stores
 
 Werden Resultate als **digitale Inhalte** in einer iOS-/Android-App verkauft,

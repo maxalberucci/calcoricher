@@ -4,6 +4,7 @@ import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gold_text.dart';
 import '../widgets/luxury_background.dart';
+import 'admin_screen.dart';
 import 'home_shell.dart';
 
 /// Login- und Registrierungs-Screen (lokaler Fake-Login).
@@ -62,7 +63,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeShell()),
+      MaterialPageRoute(
+        builder: (_) =>
+            provider.isAdmin ? const AdminScreen() : const HomeShell(),
+      ),
     );
   }
 
@@ -82,7 +86,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text('👑', style: TextStyle(fontSize: 64),
+                      const Text('👑',
+                          style: TextStyle(fontSize: 64),
                           textAlign: TextAlign.center),
                       const SizedBox(height: 16),
                       GoldText(

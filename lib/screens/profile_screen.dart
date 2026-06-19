@@ -98,11 +98,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _saveProfileDetails() async {
     final messenger = ScaffoldMessenger.of(context);
-    final links = _linksController.text
-        .split(RegExp(r'[\n,]'))
-        .map(_normalizeLink)
-        .where((link) => link.isNotEmpty)
-        .toList();
+    // Aufteilen genügt – der Provider normalisiert & validiert die Links
+    // (nur sichere http(s)-Links werden gespeichert).
+    final links = _linksController.text.split(RegExp(r'[\n,]')).toList();
 
     setState(() => _savingDetails = true);
     await context.read<UserProvider>().updateProfileDetails(
@@ -120,15 +118,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: AppTheme.goldDark,
       ),
     );
-  }
-
-  String _normalizeLink(String raw) {
-    final value = raw.trim();
-    if (value.isEmpty) return '';
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
-    }
-    return 'https://$value';
   }
 
   /// Nimmt ein Foto auf bzw. wählt eines aus der Galerie, speichert es dauerhaft

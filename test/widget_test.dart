@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:calcoricher/gamification/achievements.dart';
@@ -7,8 +8,112 @@ import 'package:calcoricher/main.dart';
 import 'package:calcoricher/models/user_model.dart';
 import 'package:calcoricher/payments/payment_config.dart';
 import 'package:calcoricher/providers/user_provider.dart';
+import 'package:calcoricher/utils/url_safety.dart';
 
 void main() {
+  group('Sicherheit', () {
+    test('UrlSafety lässt nur sichere http(s)-Links zu', () {
+      // Schemalose Eingabe -> https.
+      expect(UrlSafety.normalize('example.com'), 'https://example.com');
+      expect(UrlSafety.normalize('  example.com/x  '), 'https://example.com/x');
+      expect(UrlSafety.normalize('http://a.com'), 'http://a.com');
+
+      // Gefährliche/ungültige Schemata werden abgewiesen.
+      expect(UrlSafety.normalize('javascript:alert(1)'), isNull);
+      expect(UrlSafety.normalize('file:///etc/passwd'), isNull);
+      expect(UrlSafety.normalize('tel:+411234'), isNull);
+      expect(UrlSafety.normalize('mailto:a@b.com'), isNull);
+      expect(UrlSafety.normalize(''), isNull);
+      expect(UrlSafety.normalize('https://'), isNull);
+
+      // isSafeWebUri prüft das Schema unmittelbar vor dem Öffnen.
+      expect(UrlSafety.isSafeWebUri(Uri.parse('https://a.com')), isTrue);
+      expect(UrlSafety.isSafeWebUri(Uri.parse('javascript:x')), isFalse);
+      expect(UrlSafety.isSafeWebUri(Uri.parse('file:///x')), isFalse);
+    });
+
+    test('Profil-Links werden serverseitig auf sichere Links gefiltert',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = UserProvider();
+      await provider.init();
+      await provider.register(
+          username: 'Max', email: 'max@reich.de', password: 'geld');
+
+      await provider.updateProfileDetails(links: [
+        'javascript:alert(1)', // gefährlich -> raus
+        'file:///etc/passwd', // gefährlich -> raus
+        'good.com', // -> https://good.com
+        'https://safe.com',
+      ]);
+
+      final links = provider.currentUser!.links;
+      expect(links, containsAll(['https://good.com', 'https://safe.com']));
+      expect(links.any((l) => l.startsWith('javascript')), isFalse);
+      expect(links.any((l) => l.startsWith('file')), isFalse);
+    });
+
+    test('Überlange Eingaben werden begrenzt', () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = UserProvider();
+      await provider.init();
+      await provider.register(
+          username: 'A' * 500, email: 'max@reich.de', password: 'geld');
+
+      expect(provider.currentUser!.username.length, lessThanOrEqualTo(80));
+
+      await provider.updateProfileDetails(bio: 'x' * 5000);
+      expect(provider.currentUser!.bio.length, lessThanOrEqualTo(1000));
+    });
+
+    test('Passwörter werden als PBKDF2-Hash gespeichert (kein Klartext)',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = UserProvider();
+      await provider.init();
+      await provider.register(
+          username: 'Max', email: 'max@reich.de', password: 'supersecret');
+
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('accounts_v2')!;
+      // Klartext-Passwort darf nirgends im Storage auftauchen.
+      expect(raw.contains('supersecret'), isFalse);
+      expect(raw.contains('pbkdf2'), isTrue);
+
+      // Falsches Passwort scheitert, richtiges gelingt.
+      await provider.logout();
+      expect(await provider.login(email: 'max@reich.de', password: 'wrong'),
+          isNotNull);
+      expect(
+          await provider.login(email: 'max@reich.de', password: 'supersecret'),
+          isNull);
+    });
+
+    test('Alt-Konten (Klartext-Schema) werden beim Login auf PBKDF2 migriert',
+        () async {
+      // Konto im ALTEN Schema: nur ein Klartext-Passwort, kein Hash/Algo.
+      SharedPreferences.setMockInitialValues({
+        'accounts_v2': '{"old@x.de":{"password":"plain123",'
+            '"user":{"id":"u1","username":"Old","email":"old@x.de"}}}',
+      });
+
+      final provider = UserProvider();
+      await provider.init();
+
+      // Falsches Passwort scheitert, richtiges (Klartext-Migration) gelingt.
+      expect(
+          await provider.login(email: 'old@x.de', password: 'nope'), isNotNull);
+      expect(await provider.login(email: 'old@x.de', password: 'plain123'),
+          isNull);
+
+      // Nach dem Login ist das Konto auf PBKDF2 angehoben (kein Klartext mehr).
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('accounts_v2')!;
+      expect(raw.contains('plain123'), isFalse);
+      expect(raw.contains('pbkdf2'), isTrue);
+    });
+  });
+
   test('Preis verdoppelt sich pro freigeschaltetem Resultat', () {
     final user = UserModel(id: '1', username: 'Test', email: 't@t.de');
     const base = PaymentConfig.basePriceMinor;
@@ -101,8 +206,7 @@ void main() {
     expect(provider.isAdmin, isFalse);
     // Bob kommentiert das Admin-Profil.
     await provider.addProfileComment(targetUserId: adminId, text: 'rude');
-    final commentId =
-        provider.userById(adminId)!.profileComments.first.id;
+    final commentId = provider.userById(adminId)!.profileComments.first.id;
 
     await provider.register(
         username: 'Cara', email: 'cara@x.de', password: 'pass');
@@ -164,8 +268,8 @@ void main() {
     await provider.login(email: 'max.alberucci@gmail.com', password: 'pass');
     await provider.adminSetBanned(userId: bobId, banned: true);
     expect(provider.userById(bobId)!.isBanned, isTrue);
-    expect(await provider.login(email: 'bob@x.de', password: 'pass'),
-        isNotNull);
+    expect(
+        await provider.login(email: 'bob@x.de', password: 'pass'), isNotNull);
 
     // Admins selbst können nicht gebannt werden.
     await provider.login(email: 'max.alberucci@gmail.com', password: 'pass');
@@ -199,10 +303,8 @@ void main() {
     user.avatarPath = '/some/path.png';
     user.operatorCounts['+'] = 10;
 
-    final ids = kAchievements
-        .where((a) => a.isUnlocked(user))
-        .map((a) => a.id)
-        .toSet();
+    final ids =
+        kAchievements.where((a) => a.isUnlocked(user)).map((a) => a.id).toSet();
     expect(ids.containsAll({'first', 'rename', 'photo', 'plus'}), isTrue);
     expect(ids.contains('hundred'), isFalse);
   });
@@ -216,5 +318,72 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
     expect(find.text('SIGN IN'), findsOneWidget);
+  });
+
+  testWidgets('Saved admin session routes to the admin interface',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = UserProvider();
+    await provider.init();
+    await provider.register(
+      username: 'Admin',
+      email: 'max.alberucci@gmail.com',
+      password: 'pass',
+    );
+
+    await tester.pumpWidget(const RichCalculatorApp());
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ADMIN'), findsOneWidget);
+    expect(find.text('OVERVIEW'), findsOneWidget);
+    expect(find.text('Calculator'), findsNothing);
+  });
+
+  testWidgets('Admin can search users and open user details', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = UserProvider();
+    await provider.init();
+    await provider.register(
+      username: 'Admin',
+      email: 'max.alberucci@gmail.com',
+      password: 'pass',
+    );
+    await provider.register(
+        username: 'Bob', email: 'bob@x.de', password: 'pass');
+    await provider.recordPurchase(
+      amountMinor: PaymentConfig.basePriceMinor,
+      expression: '2 + 2',
+      result: '4',
+    );
+    await provider.register(
+      username: 'Cara',
+      email: 'cara@x.de',
+      password: 'pass',
+    );
+    await provider.login(email: 'max.alberucci@gmail.com', password: 'pass');
+
+    await tester.pumpWidget(const RichCalculatorApp());
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('USERS'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-user-search')),
+      'bob',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bob'), findsOneWidget);
+    expect(find.text('Cara'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('admin-user-row-bob@x.de')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('USER DETAILS'), findsOneWidget);
+    expect(find.text('bob@x.de'), findsOneWidget);
+    expect(find.text('BAN USER'), findsOneWidget);
+    expect(find.text('ACCOUNT STATS'), findsOneWidget);
   });
 }
