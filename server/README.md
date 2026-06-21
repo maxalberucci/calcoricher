@@ -1,4 +1,91 @@
-# Stripe-Backend für den Reichen-Rechner
+# Calcoricher Backend
+
+Dieses Backend stellt zwei Dinge bereit:
+
+1. die Calcoricher-Produkt-API für globale Nutzer, Leaderboards, Feed,
+   Räume, Challenges, Moderation, Account-Löschung, Guardrails und Receipt-SVGs
+2. den bestehenden Stripe-Checkout für echte Zahlungen
+
+Die lokale Entwicklung nutzt eine JSON-Datei unter `server/data/db.json`
+(`data/` ist gitignored). Für Produktion sollte dieselbe API hinter einer
+echten Datenbank betrieben werden.
+
+## Schnellstart
+
+```bash
+cd server
+npm install
+npm test
+npm start
+```
+
+Standard-Port: `4242`
+
+Healthcheck:
+
+```bash
+curl http://127.0.0.1:4242/api/health
+```
+
+## Produkt-API
+
+| Methode | Pfad | Zweck |
+|--------|------|-------|
+| GET | `/api/guardrails` | Tageslimit, Preisleiter, Hilfe/Refund, Satire-Hinweis |
+| GET | `/api/daily-question` | Tagesfrage |
+| GET | `/api/daily-question/:date/leaderboard` | Tagesfrage-Leaderboard |
+| GET | `/api/weekly/:weekKey/leaderboard` | ISO-Wochen-Leaderboard, z. B. `2026-W25` |
+| POST | `/api/auth/register` | Konto erstellen |
+| POST | `/api/auth/login` | Einloggen |
+| GET | `/api/me` | Aktueller Nutzer |
+| DELETE | `/api/me` | Konto löschen |
+| POST | `/api/purchases` | Freischaltung verbuchen, Receipt und Feed erzeugen |
+| GET | `/api/receipts/:id.svg` | Shareable Receipt Card als SVG |
+| GET | `/api/leaderboard` | Globales Leaderboard |
+| GET | `/api/feed` | Öffentlicher Feed |
+| POST | `/api/rooms` | Privaten Raum erstellen |
+| POST | `/api/rooms/:code/join` | Raum beitreten |
+| GET | `/api/rooms/:code/leaderboard` | Raum-Leaderboard |
+| GET | `/api/rooms/:code/competition` | Raum-Wettbewerbe: Spend, Highest Unlock, Most Ridiculous, Fastest Reveal |
+| POST | `/api/challenges` | Creator/Streamer-Challenge erstellen |
+| GET | `/api/challenges/:slug/leaderboard` | Challenge-Leaderboard |
+| GET | `/api/challenges/:slug/competition` | Challenge-Wettbewerbe: Spend, Highest Unlock, Most Ridiculous, Fastest Reveal |
+| POST | `/api/users/:id/comments` | Profil kommentieren |
+| POST | `/api/users/:id/comments/:commentId/report` | Kommentar melden |
+| GET | `/api/admin/reports` | Admin-Report-Center |
+| POST | `/api/admin/comments/:commentId/dismiss-reports` | Reports verwerfen |
+| DELETE | `/api/admin/comments/:commentId` | Kommentar löschen |
+
+Geschützte Routen erwarten:
+
+```http
+Authorization: Bearer <token>
+```
+
+Admin ist per `ADMIN_EMAILS` konfigurierbar. Ohne Variable ist
+`max.alberucci@gmail.com` Admin.
+
+`POST /api/purchases` akzeptiert optional `durationMs`. Der Server berechnet
+pro Purchase zusätzlich einen `ridiculousScore`; beide Werte treiben die
+Competition-Endpunkte.
+
+## Produkt-Variablen
+
+```bash
+ADMIN_EMAILS=max.alberucci@gmail.com
+BASE_PRICE_MINOR=100
+USERNAME_CHANGE_PRICE_MINOR=100000
+DAILY_SPEND_LIMIT_MINOR=10000
+CURRENCY_SYMBOL=CHF
+CHECKOUT_CURRENCY=chf
+HELP_URL=mailto:support@example.com
+REFUND_URL=mailto:refunds@example.com
+SATIRE_DISCLOSURE="Calcoricher is satire..."
+ALLOWED_ORIGINS=https://deinedomain.ch
+RATE_LIMIT_PER_MIN=60
+```
+
+## Stripe-Checkout
 
 Dieses kleine Backend erstellt Stripe-Checkout-Sessions und meldet deren
 Bezahlstatus zurück. Es ist nötig, weil der **geheime Stripe-Key niemals in der
@@ -56,7 +143,7 @@ Preise anzeigen, aber nicht frei bestimmen, was Stripe abrechnet.
 
 ## Sicherheit
 
-- **Rate-Limit:** Pro IP sind standardmäßig 30 Anfragen/Minute erlaubt
+- **Rate-Limit:** Pro IP sind standardmäßig 60 Anfragen/Minute erlaubt
   (`429` darüber). Anpassbar über `RATE_LIMIT_PER_MIN`. Hinter einem Proxy
   (ngrok/Railway/Render …) wird `trust proxy` genutzt, damit die echte IP zählt.
 - **Beträge:** Es werden ausschließlich die konfigurierten Beträge akzeptiert –
