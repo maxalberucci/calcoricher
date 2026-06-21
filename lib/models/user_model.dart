@@ -1,7 +1,9 @@
 import 'dart:math';
+import 'feed_item.dart';
 import '../payments/payment_config.dart';
 import 'history_entry.dart';
 import 'profile_comment.dart';
+import 'receipt_model.dart';
 
 /// Datenmodell eines Benutzers.
 ///
@@ -96,6 +98,79 @@ class UserModel {
   int get currentResultPriceMinor =>
       currentPriceMultiplier * PaymentConfig.basePriceMinor;
 
+  List<ReceiptModel> get receiptGallery => history
+      .map((entry) => ReceiptModel(
+            id: 'receipt_${id}_${entry.timestamp}',
+            purchaseId: 'purchase_${id}_${entry.timestamp}',
+            expression: entry.expression,
+            result: entry.result,
+            amountMinor: entry.amountMinor,
+            rank: entry.rank,
+            shareText:
+                'I paid ${PaymentConfig.format(entry.amountMinor)} for this answer.',
+            imageUrl: '/api/receipts/receipt_${id}_${entry.timestamp}.svg',
+            timestamp: DateTime.fromMillisecondsSinceEpoch(entry.timestamp)
+                .toIso8601String(),
+          ))
+      .toList();
+
+  List<String> get flexTitles {
+    final titles = <String>[];
+    if (receiptGallery.isNotEmpty) titles.add('Receipt Collector');
+    if (totalSpentMinor >= 10000) titles.add('Patron of Pointless Math');
+    if (unlockedResultsCount >= 10) titles.add('Serial Revealer');
+    if (luxuryFrame.tier >= 2) titles.add(luxuryFrame.name);
+    return titles;
+  }
+
+  LuxuryFrame get luxuryFrame {
+    if (totalSpentMinor >= 100000) {
+      return const LuxuryFrame(
+        name: 'Black Diamond Frame',
+        rarity: 'Mythic',
+        tier: 3,
+      );
+    }
+    if (highestUnlockMinor >= PaymentConfig.dailySpendLimitMinor ||
+        totalSpentMinor >= 50000) {
+      return const LuxuryFrame(
+        name: 'Diamond Frame',
+        rarity: 'Rare',
+        tier: 2,
+      );
+    }
+    if (receiptGallery.length >= 3 || totalSpentMinor >= 5000) {
+      return const LuxuryFrame(
+        name: 'Gilded Frame',
+        rarity: 'Uncommon',
+        tier: 1,
+      );
+    }
+    return const LuxuryFrame(
+      name: 'Classic Gold Frame',
+      rarity: 'Common',
+      tier: 0,
+    );
+  }
+
+  FeedItem feedItemFor(HistoryEntry entry) => FeedItem(
+        id: 'feed_${id}_${entry.timestamp}',
+        purchaseId: 'purchase_${id}_${entry.timestamp}',
+        receiptId: 'receipt_${id}_${entry.timestamp}',
+        by: username,
+        userId: id,
+        expression: entry.expression,
+        result: entry.result,
+        amountMinor: entry.amountMinor,
+        shareText:
+            'I paid ${PaymentConfig.format(entry.amountMinor)} for this answer.',
+        roomCode: entry.roomCode,
+        challengeSlug: entry.challengeSlug,
+        charityCampaignId: entry.charityCampaignId,
+        timestamp: DateTime.fromMillisecondsSinceEpoch(entry.timestamp)
+            .toIso8601String(),
+      );
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'username': username,
@@ -152,4 +227,16 @@ class UserModel {
                 ?.map((k, v) => MapEntry(k as String, v as int)) ??
             {},
       );
+}
+
+class LuxuryFrame {
+  final String name;
+  final String rarity;
+  final int tier;
+
+  const LuxuryFrame({
+    required this.name,
+    required this.rarity,
+    required this.tier,
+  });
 }

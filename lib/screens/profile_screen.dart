@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../gamification/achievements.dart';
 import '../gamification/ranks.dart';
 import '../legal/legal_meta.dart';
+import '../models/receipt_model.dart';
 import '../models/user_model.dart';
 import '../payments/payment_config.dart';
 import '../providers/user_provider.dart';
@@ -166,8 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardHigh,
-        title: const Text('Sign out?',
-            style: TextStyle(color: AppTheme.gold)),
+        title: const Text('Sign out?', style: TextStyle(color: AppTheme.gold)),
         content: const Text(
           'Your spending and history stay saved and await your return.',
           style: TextStyle(color: AppTheme.textSecondary),
@@ -337,6 +337,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           // Auszeichnungen
                           _AchievementsSection(user: user),
                           const SizedBox(height: 28),
+                          _ReceiptGallerySection(user: user),
+                          const SizedBox(height: 28),
 
                           // Kommentare auf dem eigenen Profil (mit Antwort)
                           _ProfileCommentsCard(user: user),
@@ -376,8 +378,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     prefixIcon: Icon(Icons.person,
                                         color: AppTheme.gold),
                                   ),
-                                  textCapitalization:
-                                      TextCapitalization.words,
+                                  textCapitalization: TextCapitalization.words,
                                   validator: (v) {
                                     if (v == null || v.trim().length < 2) {
                                       return 'At least 2 characters.';
@@ -700,8 +701,8 @@ class _RankCard extends StatelessWidget {
               next == null
                   ? 'Maximum rank reached 👑'
                   : '${PaymentConfig.format(next.thresholdMinor - spentMinor)} to ${next.name}',
-              style: const TextStyle(
-                  color: AppTheme.textSecondary, fontSize: 11),
+              style:
+                  const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
             ),
           ),
         ],
@@ -743,6 +744,143 @@ class _AchievementsSection extends StatelessWidget {
               .toList(),
         ),
       ],
+    );
+  }
+}
+
+class _ReceiptGallerySection extends StatelessWidget {
+  final UserModel user;
+  const _ReceiptGallerySection({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    final receipts = user.receiptGallery;
+    final visibleReceipts = receipts.take(5).toList();
+    final titles = user.flexTitles;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const _SectionLabel('RECEIPT GALLERY'),
+            const Spacer(),
+            Text(
+              '${receipts.length}',
+              style: const TextStyle(
+                color: AppTheme.gold,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (titles.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: titles
+                .map(
+                  (title) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.gold.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.goldDark),
+                    ),
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppTheme.gold,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        if (titles.isNotEmpty) const SizedBox(height: 12),
+        if (receipts.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.card,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.divider),
+            ),
+            child: const Text(
+              'No receipts yet. Unlock a result to mint your first public flex.',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          )
+        else
+          for (var i = 0; i < visibleReceipts.length; i++)
+            _AnimatedReceiptCard(receipt: visibleReceipts[i], index: i),
+      ],
+    );
+  }
+}
+
+class _AnimatedReceiptCard extends StatelessWidget {
+  final ReceiptModel receipt;
+  final int index;
+
+  const _AnimatedReceiptCard({required this.receipt, required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 260 + index * 70),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, (1 - value) * 10),
+          child: child,
+        ),
+      ),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.goldDark, width: 0.7),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${receipt.expression} = ${receipt.result}',
+              style: const TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              receipt.shareText,
+              style: const TextStyle(color: AppTheme.gold),
+            ),
+            if (receipt.rank != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Rank #${receipt.rank}',
+                style: const TextStyle(color: AppTheme.textSecondary),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -818,9 +956,8 @@ class _AchievementBadge extends StatelessWidget {
         width: 104,
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: unlocked
-              ? AppTheme.gold.withValues(alpha: 0.10)
-              : AppTheme.card,
+          color:
+              unlocked ? AppTheme.gold.withValues(alpha: 0.10) : AppTheme.card,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: unlocked ? AppTheme.gold : AppTheme.divider,
@@ -851,8 +988,8 @@ class _AchievementBadge extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 label,
-                style: const TextStyle(
-                    color: AppTheme.textSecondary, fontSize: 9),
+                style:
+                    const TextStyle(color: AppTheme.textSecondary, fontSize: 9),
               ),
             ],
           ],
@@ -885,8 +1022,7 @@ class _NextPriceCard extends StatelessWidget {
               children: [
                 const Text(
                   'Price for the next result',
-                  style: TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 12),
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                 ),
                 Text(
                   price,
@@ -1039,8 +1175,7 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style:
-                const TextStyle(color: AppTheme.textSecondary, fontSize: 10),
+            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 10),
             textAlign: TextAlign.center,
           ),
         ],

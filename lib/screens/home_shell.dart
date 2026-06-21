@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'calculator_screen.dart';
 import 'leaderboard_screen.dart';
 import 'profile_screen.dart';
+import 'social_screen.dart';
 import '../providers/user_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/comment_notifications.dart';
@@ -16,11 +17,12 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  static const _profileIndex = 2;
+  static const _profileIndex = 3;
   int _selectedIndex = 0;
 
   static const _screens = [
     CalculatorScreen(),
+    SocialScreen(),
     LeaderboardScreen(),
     ProfileScreen(),
   ];
@@ -76,6 +78,11 @@ class _HomeShellState extends State<HomeShell> {
               icon: Icon(Icons.calculate_outlined),
               activeIcon: Icon(Icons.calculate),
               label: 'Calculator',
+            ),
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.public_outlined),
+              activeIcon: Icon(Icons.public),
+              label: 'Social',
             ),
             const BottomNavigationBarItem(
               icon: Icon(Icons.leaderboard_outlined),

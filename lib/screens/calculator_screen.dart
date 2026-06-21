@@ -12,6 +12,7 @@ import '../widgets/luxury_background.dart';
 import '../widgets/luxury_button.dart';
 import '../widgets/payment_sheet.dart';
 import '../widgets/purchase_celebration.dart';
+import 'login_screen.dart';
 
 class CalculatorScreen extends StatefulWidget {
   const CalculatorScreen({super.key});
@@ -87,7 +88,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                   if (user != null)
                     _CostBar(calc: calc)
                   else
-                    const _NoUserHint(),
+                    _GuestRevealGate(calc: calc),
                   const Divider(height: 1, color: AppTheme.divider),
                   Expanded(flex: 3, child: _ButtonGrid(calc: calc)),
                   const SizedBox(height: 8),
@@ -262,6 +263,18 @@ class _CostBar extends StatelessWidget {
     final expression = calcProv.expression;
     final result = calcProv.rawResult;
 
+    if (!userProv.canSpendToday(amount)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Daily spending limit reached (${PaymentConfig.format(PaymentConfig.dailySpendLimitMinor)}).',
+          ),
+          backgroundColor: const Color(0xFFE05A5A),
+        ),
+      );
+      return;
+    }
+
     final paid = await showPaymentSheet(
       context,
       amountMinor: amount,
@@ -269,11 +282,12 @@ class _CostBar extends StatelessWidget {
     );
     if (!context.mounted || !paid) return;
 
-    await userProv.recordPurchase(
+    final recorded = await userProv.recordPurchase(
       amountMinor: amount,
       expression: expression,
       result: result,
     );
+    if (!context.mounted || !recorded) return;
     calcProv.reveal();
     if (!context.mounted) return;
     await showPurchaseCelebration(context, amountMinor: amount);
@@ -319,26 +333,45 @@ class _SpentBadge extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Hinweis, falls (theoretisch) kein Benutzer vorhanden ist
+// Gast-Hinweis: rechnen sofort, anmelden erst beim Freischalten.
 // ---------------------------------------------------------------------------
-class _NoUserHint extends StatelessWidget {
-  const _NoUserHint();
+class _GuestRevealGate extends StatelessWidget {
+  final CalculatorProvider calc;
+
+  const _GuestRevealGate({required this.calc});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
         children: [
-          const Icon(Icons.person_off, color: AppTheme.gold, size: 16),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              'Please sign in to unlock results',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.person_off, color: AppTheme.gold, size: 16),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  calc.isReadyToReveal
+                      ? 'Your answer is ready. Sign in to unlock it.'
+                      : 'Calculate first. Sign in only when you are ready to unlock.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
           ),
+          if (calc.isReadyToReveal) ...[
+            const SizedBox(height: 10),
+            LuxuryButton(
+              icon: Icons.login,
+              label: 'SIGN IN TO UNLOCK',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              ),
+            ),
+          ],
         ],
       ),
     );

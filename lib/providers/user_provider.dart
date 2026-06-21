@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/admin_config.dart';
+import '../models/feed_item.dart';
 import '../models/history_entry.dart';
 import '../models/profile_comment.dart';
 import '../models/user_model.dart';
+import '../payments/payment_config.dart';
 import '../utils/url_safety.dart';
 
 /// Sortierkriterien der Rangliste.
@@ -45,15 +47,37 @@ String _clampText(String value, int maxCodeUnits) {
 class UserProvider extends ChangeNotifier {
   static const _keyAccounts = 'accounts_v2';
   static const _keyCurrentEmail = 'current_email';
+  static const _keyRooms = 'product_rooms_v1';
+  static const _keyActiveChallenge = 'active_challenge_v1';
+  static const _keyActiveCharity = 'active_charity_v1';
 
   final Map<String, _Account> _accounts = {};
+  final List<RichRoom> _rooms = [];
   String? _currentEmail;
+  String? _activeChallengeSlug;
+  String? _activeCharityCampaignId;
   bool _initialized = false;
 
   bool get isInitialized => _initialized;
   bool get hasUser =>
       _currentEmail != null && _accounts.containsKey(_currentEmail);
   UserModel? get currentUser => hasUser ? _accounts[_currentEmail]!.user : null;
+  List<RichRoom> get rooms => List.unmodifiable(_rooms);
+  String? get activeChallengeSlug => _activeChallengeSlug;
+  String? get activeCharityCampaignId => _activeCharityCampaignId;
+
+  DailyRichQuestion get dailyRichQuestion {
+    final now = DateTime.now();
+    final date = _dateKey(now);
+    final seed = int.tryParse(date.replaceAll('-', '')) ?? 20260621;
+    final left = 10 + (seed % 41);
+    final right = 2 + ((seed ~/ 7) % 17);
+    return DailyRichQuestion(
+      date: date,
+      title: 'Daily Rich Question',
+      expression: '$left * $right',
+    );
+  }
 
   UserModel? userById(String id) {
     for (final account in _accounts.values) {
@@ -95,6 +119,168 @@ class UserProvider extends ChangeNotifier {
     return index == -1 ? 0 : index + 1;
   }
 
+  List<FeedItem> get publicFeed {
+    final items = <FeedItem>[];
+    for (final account in _accounts.values) {
+      for (final entry in account.user.history) {
+        items.add(account.user.feedItemFor(entry));
+      }
+    }
+    items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return List.unmodifiable(items);
+  }
+
+  Future<RichRoom> createRoom({required String title}) async {
+    final user = currentUser;
+    final cleanedTitle = _clampText(title, 80);
+    final room = RichRoom(
+      id: _generateUserId(),
+      code: _roomCode(),
+      title: cleanedTitle.isEmpty ? 'Private Rich Room' : cleanedTitle,
+      ownerId: user?.id ?? '',
+      members: user == null ? const [] : [user.id],
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    _rooms.insert(0, room);
+    await _persist();
+    notifyListeners();
+    return room;
+  }
+
+  Future<void> joinRoom(String code) async {
+    final user = currentUser;
+    if (user == null) return;
+    final normalized = code.trim().toUpperCase();
+    for (var i = 0; i < _rooms.length; i++) {
+      final room = _rooms[i];
+      if (room.code == normalized && !room.members.contains(user.id)) {
+        _rooms[i] = room.copyWith(members: [...room.members, user.id]);
+        await _persist();
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  Future<void> activateChallenge(String slug) async {
+    _activeChallengeSlug = _slug(slug);
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> activateCharityCampaign(String id) async {
+    _activeCharityCampaignId = _slug(id);
+    await _persist();
+    notifyListeners();
+  }
+
+  List<UserModel> roomLeaderboard(String code) => _scopedLeaderboard(
+      (entry) => entry.roomCode == code.trim().toUpperCase());
+
+  CompetitionLeaders roomCompetition(String code) => _competition(
+        (entry) => entry.roomCode == code.trim().toUpperCase(),
+      );
+
+  List<UserModel> challengeLeaderboard(String slug) {
+    final normalized = _slug(slug);
+    return _scopedLeaderboard((entry) => entry.challengeSlug == normalized);
+  }
+
+  CompetitionLeaders challengeCompetition(String slug) {
+    final normalized = _slug(slug);
+    return _competition((entry) => entry.challengeSlug == normalized);
+  }
+
+  List<UserModel> dailyLeaderboard(String date) =>
+      _scopedLeaderboard((entry) => entry.dailyQuestionDate == date);
+
+  List<UserModel> weeklyLeaderboard(String weekKey) {
+    final normalized = _normalizeWeekKey(weekKey);
+    if (normalized.isEmpty) return const [];
+    return _scopedLeaderboard(
+      (entry) =>
+          _isoWeekKey(
+            DateTime.fromMillisecondsSinceEpoch(entry.timestamp, isUtc: true),
+          ) ==
+          normalized,
+    );
+  }
+
+  List<UserModel> _scopedLeaderboard(bool Function(HistoryEntry) include) {
+    final users = _accounts.values
+        .map((account) => account.user)
+        .where((user) => user.history.any(include))
+        .toList();
+    users.sort((a, b) {
+      int scopedTotal(UserModel user) => user.history
+          .where(include)
+          .fold(0, (sum, entry) => sum + entry.amountMinor);
+      return scopedTotal(b).compareTo(scopedTotal(a));
+    });
+    return List.unmodifiable(users);
+  }
+
+  CompetitionLeaders _competition(bool Function(HistoryEntry) include) {
+    final entries = <CompetitionEntry>[];
+    for (final account in _accounts.values) {
+      final user = account.user;
+      final history = user.history.where(include).toList();
+      if (history.isEmpty) continue;
+      entries.add(
+        CompetitionEntry(
+          user: user,
+          totalSpentMinor:
+              history.fold(0, (sum, entry) => sum + entry.amountMinor),
+          unlockedResultsCount: history.length,
+          highestUnlockMinor:
+              history.map((entry) => entry.amountMinor).reduce(max),
+          ridiculousScore:
+              history.map((entry) => entry.ridiculousScore).reduce(max),
+          fastestRevealMs: _fastestRevealMs(history),
+        ),
+      );
+    }
+
+    int byName(CompetitionEntry a, CompetitionEntry b) =>
+        a.username.compareTo(b.username);
+    int firstNonZero(List<int> comparisons) {
+      for (final comparison in comparisons) {
+        if (comparison != 0) return comparison;
+      }
+      return 0;
+    }
+
+    final spent = [...entries]..sort((a, b) => firstNonZero([
+          b.totalSpentMinor.compareTo(a.totalSpentMinor),
+          b.unlockedResultsCount.compareTo(a.unlockedResultsCount),
+          byName(a, b),
+        ]));
+    final highestUnlock = [...entries]..sort((a, b) => firstNonZero([
+          b.highestUnlockMinor.compareTo(a.highestUnlockMinor),
+          b.totalSpentMinor.compareTo(a.totalSpentMinor),
+          byName(a, b),
+        ]));
+    final ridiculous = [...entries]..sort((a, b) => firstNonZero([
+          b.ridiculousScore.compareTo(a.ridiculousScore),
+          b.totalSpentMinor.compareTo(a.totalSpentMinor),
+          byName(a, b),
+        ]));
+    final fastest =
+        entries.where((entry) => entry.fastestRevealMs != null).toList()
+          ..sort((a, b) => firstNonZero([
+                a.fastestRevealMs!.compareTo(b.fastestRevealMs!),
+                b.totalSpentMinor.compareTo(a.totalSpentMinor),
+                byName(a, b),
+              ]));
+
+    return CompetitionLeaders(
+      spent: List.unmodifiable(spent),
+      highestUnlock: List.unmodifiable(highestUnlock),
+      ridiculous: List.unmodifiable(ridiculous),
+      fastest: List.unmodifiable(fastest),
+    );
+  }
+
   /// Lädt gespeicherte Konten und die letzte Sitzung beim Start.
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -111,6 +297,16 @@ class UserProvider extends ChangeNotifier {
     if (savedEmail != null && _accounts.containsKey(savedEmail)) {
       _currentEmail = savedEmail;
     }
+
+    _rooms
+      ..clear()
+      ..addAll(
+        (jsonDecode(prefs.getString(_keyRooms) ?? '[]') as List)
+            .whereType<Map>()
+            .map((entry) => RichRoom.fromJson(entry.cast<String, dynamic>())),
+      );
+    _activeChallengeSlug = prefs.getString(_keyActiveChallenge);
+    _activeCharityCampaignId = prefs.getString(_keyActiveCharity);
 
     _initialized = true;
     notifyListeners();
@@ -401,7 +597,8 @@ class UserProvider extends ChangeNotifier {
     for (final account in _accounts.values) {
       final user = account.user;
       comments += user.profileComments.length;
-      reports += user.profileComments.fold(0, (sum, c) => sum + c.reports.length);
+      reports +=
+          user.profileComments.fold(0, (sum, c) => sum + c.reports.length);
       spent += user.totalSpentMinor;
       results += user.unlockedResultsCount;
       if (user.isBanned) banned += 1;
@@ -478,28 +675,64 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Heute lokal bereits ausgegebener Betrag fuer Resultat-Freischaltungen.
+  int spentTodayMinor({DateTime? now}) {
+    final user = currentUser;
+    if (user == null) return 0;
+    final day = now ?? DateTime.now();
+    return user.history
+        .where((entry) => _sameLocalDate(entry.timestamp, day))
+        .fold(0, (sum, entry) => sum + entry.amountMinor);
+  }
+
+  bool canSpendToday(int amountMinor, {DateTime? now}) =>
+      spentTodayMinor(now: now) + amountMinor <=
+      PaymentConfig.dailySpendLimitMinor;
+
   /// Verbucht eine erfolgreiche (echte) Zahlung: erhöht den ausgegebenen Betrag
   /// und den Zähler (verdoppelt den nächsten Preis) und legt die freigeschaltete
   /// Rechnung im Verlauf ab (neueste zuerst, max. 50).
-  Future<void> recordPurchase({
+  Future<bool> recordPurchase({
     required int amountMinor,
     required String expression,
     required String result,
+    String? roomCode,
+    String? challengeSlug,
+    String? dailyQuestionDate,
+    String? charityCampaignId,
+    int? durationMs,
+    int? timestamp,
   }) async {
     final user = currentUser;
-    if (user == null) return;
+    if (user == null) return false;
+
+    final now = DateTime.now();
+    final purchaseTimestamp = timestamp ?? now.millisecondsSinceEpoch;
+    final purchaseDay = DateTime.fromMillisecondsSinceEpoch(purchaseTimestamp);
+    if (!canSpendToday(amountMinor, now: purchaseDay)) return false;
 
     user.totalSpentMinor += amountMinor;
     user.unlockedResultsCount += 1;
     if (amountMinor > user.highestUnlockMinor) {
       user.highestUnlockMinor = amountMinor;
     }
+    final rank = leaderboardRankOf(user.id);
     user.history.insert(
       0,
       HistoryEntry(
         expression: expression,
         result: result,
-        timestamp: DateTime.now().millisecondsSinceEpoch,
+        amountMinor: amountMinor,
+        roomCode: roomCode?.trim().toUpperCase(),
+        challengeSlug:
+            challengeSlug == null ? _activeChallengeSlug : _slug(challengeSlug),
+        dailyQuestionDate: dailyQuestionDate,
+        charityCampaignId: charityCampaignId == null
+            ? _activeCharityCampaignId
+            : _slug(charityCampaignId),
+        durationMs: _normalizeDurationMs(durationMs),
+        rank: rank == 0 ? null : rank,
+        timestamp: purchaseTimestamp,
       ),
     );
     if (user.history.length > 50) {
@@ -514,6 +747,7 @@ class UserProvider extends ChangeNotifier {
 
     await _persist();
     notifyListeners();
+    return true;
   }
 
   /// Löscht den Verlauf des aktuellen Benutzers.
@@ -523,6 +757,28 @@ class UserProvider extends ChangeNotifier {
     user.history.clear();
     await _persist();
     notifyListeners();
+  }
+
+  bool _sameLocalDate(int timestamp, DateTime day) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    return date.year == day.year &&
+        date.month == day.month &&
+        date.day == day.day;
+  }
+
+  int? _fastestRevealMs(List<HistoryEntry> entries) {
+    final durations = entries
+        .map((entry) => entry.durationMs)
+        .whereType<int>()
+        .where((duration) => duration > 0)
+        .toList();
+    if (durations.isEmpty) return null;
+    return durations.reduce(min);
+  }
+
+  int? _normalizeDurationMs(int? durationMs) {
+    if (durationMs == null || durationMs <= 0) return null;
+    return min(durationMs, 86400000);
   }
 
   static final Random _idRandom = Random();
@@ -535,10 +791,156 @@ class UserProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final map = _accounts.map((k, v) => MapEntry(k, v.toJson()));
     await prefs.setString(_keyAccounts, jsonEncode(map));
+    await prefs.setString(
+      _keyRooms,
+      jsonEncode(_rooms.map((room) => room.toJson()).toList()),
+    );
+    if (_activeChallengeSlug == null) {
+      await prefs.remove(_keyActiveChallenge);
+    } else {
+      await prefs.setString(_keyActiveChallenge, _activeChallengeSlug!);
+    }
+    if (_activeCharityCampaignId == null) {
+      await prefs.remove(_keyActiveCharity);
+    } else {
+      await prefs.setString(_keyActiveCharity, _activeCharityCampaignId!);
+    }
     if (_currentEmail != null) {
       await prefs.setString(_keyCurrentEmail, _currentEmail!);
     }
   }
+
+  String _roomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    String code;
+    do {
+      code = List.generate(
+        6,
+        (_) => chars[_idRandom.nextInt(chars.length)],
+      ).join();
+    } while (_rooms.any((room) => room.code == code));
+    return code;
+  }
+
+  String _slug(String value) => value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+
+  String _dateKey(DateTime value) => '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
+
+  String _normalizeWeekKey(String value) {
+    final match = RegExp(r'^(\d{4})-W(\d{1,2})$', caseSensitive: false)
+        .firstMatch(value.trim());
+    if (match == null) return '';
+    final week = int.tryParse(match.group(2)!);
+    if (week == null || week < 1 || week > 53) return '';
+    return '${match.group(1)}-W${week.toString().padLeft(2, '0')}';
+  }
+
+  String _isoWeekKey(DateTime value) {
+    final utc = value.toUtc();
+    final date = DateTime.utc(utc.year, utc.month, utc.day);
+    final thursday = date.add(Duration(days: 4 - date.weekday));
+    final yearStart = DateTime.utc(thursday.year, 1, 1);
+    final week = ((thursday.difference(yearStart).inDays + 1) / 7).ceil();
+    return '${thursday.year}-W${week.toString().padLeft(2, '0')}';
+  }
+}
+
+class CompetitionLeaders {
+  final List<CompetitionEntry> spent;
+  final List<CompetitionEntry> highestUnlock;
+  final List<CompetitionEntry> ridiculous;
+  final List<CompetitionEntry> fastest;
+
+  const CompetitionLeaders({
+    required this.spent,
+    required this.highestUnlock,
+    required this.ridiculous,
+    required this.fastest,
+  });
+}
+
+class CompetitionEntry {
+  final UserModel user;
+  final int totalSpentMinor;
+  final int unlockedResultsCount;
+  final int highestUnlockMinor;
+  final int ridiculousScore;
+  final int? fastestRevealMs;
+
+  const CompetitionEntry({
+    required this.user,
+    required this.totalSpentMinor,
+    required this.unlockedResultsCount,
+    required this.highestUnlockMinor,
+    required this.ridiculousScore,
+    required this.fastestRevealMs,
+  });
+
+  String get username => user.username;
+  String get userId => user.id;
+}
+
+class DailyRichQuestion {
+  final String date;
+  final String title;
+  final String expression;
+
+  const DailyRichQuestion({
+    required this.date,
+    required this.title,
+    required this.expression,
+  });
+}
+
+class RichRoom {
+  final String id;
+  final String code;
+  final String title;
+  final String ownerId;
+  final List<String> members;
+  final int createdAt;
+
+  const RichRoom({
+    required this.id,
+    required this.code,
+    required this.title,
+    required this.ownerId,
+    required this.members,
+    required this.createdAt,
+  });
+
+  RichRoom copyWith({List<String>? members}) => RichRoom(
+        id: id,
+        code: code,
+        title: title,
+        ownerId: ownerId,
+        members: members ?? this.members,
+        createdAt: createdAt,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'code': code,
+        'title': title,
+        'ownerId': ownerId,
+        'members': members,
+        'createdAt': createdAt,
+      };
+
+  factory RichRoom.fromJson(Map<String, dynamic> json) => RichRoom(
+        id: json['id'] as String? ?? '',
+        code: json['code'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        ownerId: json['ownerId'] as String? ?? '',
+        members: (json['members'] as List?)?.whereType<String>().toList() ?? [],
+        createdAt: json['createdAt'] as int? ?? 0,
+      );
 }
 
 /// Eine Antwort des Profil-Besitzers auf einen eigenen Kommentar.
@@ -638,8 +1040,7 @@ class _Account {
     final hash = json['passwordHash'] as String?;
     final salt = json['passwordSalt'] as String?;
     final algo = json['passwordAlgo'] as String?;
-    final iterations =
-        json['iterations'] as int? ?? _PasswordHasher.iterations;
+    final iterations = json['iterations'] as int? ?? _PasswordHasher.iterations;
     final legacyPassword = json['password'] as String?;
     final user = UserModel.fromJson(json['user'] as Map<String, dynamic>);
 

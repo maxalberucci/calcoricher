@@ -41,6 +41,7 @@ class ProfileShowcase extends StatelessWidget {
     final bio = user.bio.trim();
     final hasDetails =
         title.isNotEmpty || bio.isNotEmpty || user.links.isNotEmpty;
+    final frame = user.luxuryFrame;
 
     return Container(
       width: double.infinity,
@@ -108,6 +109,8 @@ class ProfileShowcase extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _FrameBadge(frame: frame, accent: accent),
           if (bio.isNotEmpty) ...[
             const SizedBox(height: 14),
             Text(
@@ -141,6 +144,49 @@ class ProfileShowcase extends StatelessWidget {
                   .toList(),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FrameBadge extends StatelessWidget {
+  final LuxuryFrame frame;
+  final ProfileAccent accent;
+
+  const _FrameBadge({required this.frame, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: accent.color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: accent.light.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.auto_awesome, color: accent.light, size: 15),
+          const SizedBox(width: 7),
+          Text(
+            frame.name,
+            style: TextStyle(
+              color: accent.light,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            frame.rarity,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );

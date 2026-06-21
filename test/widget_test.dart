@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:calcoricher/gamification/achievements.dart';
 import 'package:calcoricher/gamification/ranks.dart';
+import 'package:calcoricher/legal/legal_meta.dart';
 import 'package:calcoricher/main.dart';
 import 'package:calcoricher/models/user_model.dart';
 import 'package:calcoricher/payments/payment_config.dart';
@@ -190,6 +191,193 @@ void main() {
     expect(wrong, isNotNull);
   });
 
+  test('Tageslimit verhindert weitere Käufe im lokalen Sandbox-Modus',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = UserProvider();
+    await provider.init();
+    await provider.register(
+      username: 'Limit',
+      email: 'limit@x.de',
+      password: 'pass',
+    );
+
+    final first = await provider.recordPurchase(
+      amountMinor: PaymentConfig.dailySpendLimitMinor - 100,
+      expression: '1 + 1',
+      result: '2',
+    );
+    expect(first, isTrue);
+
+    final blocked = await provider.recordPurchase(
+      amountMinor: 200,
+      expression: '2 + 2',
+      result: '4',
+    );
+    expect(blocked, isFalse);
+    expect(
+      provider.currentUser!.totalSpentMinor,
+      PaymentConfig.dailySpendLimitMinor - 100,
+    );
+  });
+
+  test('Produkt-Loop erzeugt Feed, Räume, Challenges, Charity und Receipts',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = UserProvider();
+    await provider.init();
+    await provider.register(
+      username: 'Ada',
+      email: 'ada@rich.test',
+      password: 'pass',
+    );
+
+    final daily = provider.dailyRichQuestion;
+    expect(daily.title, 'Daily Rich Question');
+    expect(daily.expression, isNotEmpty);
+
+    final room = await provider.createRoom(title: 'Sunday Rich Room');
+    await provider.activateChallenge('streamer-night');
+    await provider.activateCharityCampaign('math-relief');
+
+    final recorded = await provider.recordPurchase(
+      amountMinor: 400,
+      expression: '17 * 3',
+      result: '51',
+      roomCode: room.code,
+      challengeSlug: 'streamer-night',
+      dailyQuestionDate: daily.date,
+      charityCampaignId: 'math-relief',
+    );
+    expect(recorded, isTrue);
+
+    final feed = provider.publicFeed;
+    expect(feed.first.by, 'Ada');
+    expect(feed.first.expression, '17 * 3');
+    expect(feed.first.shareText, 'I paid CHF 4.00 for this answer.');
+    expect(feed.first.roomCode, room.code);
+    expect(feed.first.challengeSlug, 'streamer-night');
+    expect(feed.first.charityCampaignId, 'math-relief');
+
+    expect(provider.roomLeaderboard(room.code).first.username, 'Ada');
+    expect(
+        provider.challengeLeaderboard('streamer-night').first.username, 'Ada');
+    expect(provider.dailyLeaderboard(daily.date).first.username, 'Ada');
+    expect(provider.currentUser!.receiptGallery.first.shareText,
+        'I paid CHF 4.00 for this answer.');
+    expect(provider.currentUser!.receiptGallery.first.rank, 1);
+    expect(provider.currentUser!.flexTitles, contains('Receipt Collector'));
+  });
+
+  test('Produkt-Loop rangiert Raum- und Challenge-Wettbewerbe nach Kategorien',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = UserProvider();
+    await provider.init();
+    await provider.register(
+      username: 'Ada',
+      email: 'ada@rich.test',
+      password: 'pass',
+    );
+    final room = await provider.createRoom(title: 'Ridiculous Math Room');
+    await provider.activateChallenge('streamer-night');
+    await provider.recordPurchase(
+      amountMinor: 900,
+      expression: '999999999 * (888888 + 7777) / 3 - 1',
+      result: '299999666370',
+      roomCode: room.code,
+      challengeSlug: 'streamer-night',
+      durationMs: 8200,
+    );
+
+    await provider.register(
+      username: 'Bob',
+      email: 'bob@rich.test',
+      password: 'pass',
+    );
+    await provider.recordPurchase(
+      amountMinor: 500,
+      expression: '2 + 2',
+      result: '4',
+      roomCode: room.code,
+      challengeSlug: 'streamer-night',
+      durationMs: 1100,
+    );
+    await provider.recordPurchase(
+      amountMinor: 500,
+      expression: '3 + 3',
+      result: '6',
+      roomCode: room.code,
+      challengeSlug: 'streamer-night',
+      durationMs: 1300,
+    );
+
+    final roomCompetition = provider.roomCompetition(room.code);
+    expect(roomCompetition.spent.first.username, 'Bob');
+    expect(roomCompetition.highestUnlock.first.username, 'Ada');
+    expect(roomCompetition.ridiculous.first.username, 'Ada');
+    expect(roomCompetition.fastest.first.username, 'Bob');
+    expect(roomCompetition.fastest.first.fastestRevealMs, 1100);
+
+    final challengeCompetition =
+        provider.challengeCompetition('streamer-night');
+    expect(challengeCompetition.spent.first.username, 'Bob');
+    expect(challengeCompetition.highestUnlock.first.username, 'Ada');
+    expect(challengeCompetition.ridiculous.first.username, 'Ada');
+    expect(challengeCompetition.fastest.first.username, 'Bob');
+  });
+
+  test('Woechentliche Rangliste setzt an ISO-Wochengrenzen zurueck', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = UserProvider();
+    await provider.init();
+    await provider.register(
+      username: 'Ada',
+      email: 'ada@rich.test',
+      password: 'pass',
+    );
+    await provider.recordPurchase(
+      amountMinor: 700,
+      expression: '10 + 1',
+      result: '11',
+      timestamp: DateTime.utc(2026, 6, 21, 12).millisecondsSinceEpoch,
+    );
+    await provider.register(
+      username: 'Bob',
+      email: 'bob@rich.test',
+      password: 'pass',
+    );
+    await provider.recordPurchase(
+      amountMinor: 800,
+      expression: '10 + 2',
+      result: '12',
+      timestamp: DateTime.utc(2026, 6, 22, 12).millisecondsSinceEpoch,
+    );
+
+    expect(provider.weeklyLeaderboard('2026-W25').single.username, 'Ada');
+    expect(provider.weeklyLeaderboard('2026-W26').single.username, 'Bob');
+  });
+
+  test('Profile flex unlocks rare frames from expensive receipts', () async {
+    SharedPreferences.setMockInitialValues({});
+    final provider = UserProvider();
+    await provider.init();
+    await provider.register(
+      username: 'Ada',
+      email: 'ada@rich.test',
+      password: 'pass',
+    );
+    await provider.recordPurchase(
+      amountMinor: PaymentConfig.dailySpendLimitMinor,
+      expression: '999 * 999',
+      result: '998001',
+    );
+
+    expect(provider.currentUser!.luxuryFrame.name, 'Diamond Frame');
+    expect(provider.currentUser!.luxuryFrame.rarity, 'Rare');
+    expect(provider.currentUser!.flexTitles, contains('Diamond Frame'));
+  });
+
   test('Reporting und Admin-Tool funktionieren', () async {
     SharedPreferences.setMockInitialValues({});
     final provider = UserProvider();
@@ -310,19 +498,164 @@ void main() {
   });
 
   testWidgets('App shows the splash and routes to login', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues(_withConsent());
     await tester.pumpWidget(const RichCalculatorApp());
     await tester.pump();
     expect(find.text('CALCORICHER'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 3));
+    await _finishSplash(tester);
+    expect(find.text('Calculator'), findsOneWidget);
+    expect(find.text('Social'), findsOneWidget);
+    expect(find.text('SIGN IN'), findsNothing);
+    expect(find.textContaining('Calculate first'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Social tab exposes feed, daily, rooms, creator, charity and guardrails',
+      (tester) async {
+    SharedPreferences.setMockInitialValues(_withConsent());
+    await tester.pumpWidget(const RichCalculatorApp());
+    await _finishSplash(tester);
+
+    await tester.tap(find.text('Social'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('DAILY RICH QUESTION'), findsOneWidget);
+    expect(find.text('RECENTLY UNLOCKED'), findsOneWidget);
+    expect(find.text('PRIVATE ROOMS'), findsOneWidget);
+    expect(find.text('CREATOR MODE'), findsOneWidget);
+    expect(find.text('CHARITY MODE'), findsOneWidget);
+    expect(find.text('SPENDING GUARDRAILS'), findsOneWidget);
+    expect(find.textContaining('This is satire'), findsOneWidget);
+  });
+
+  testWidgets('Social room cards show competition leaders', (tester) async {
+    SharedPreferences.setMockInitialValues(_withConsent());
+    final provider = UserProvider();
+    await provider.init();
+    await provider.register(
+      username: 'Ada',
+      email: 'ada@rich.test',
+      password: 'pass',
+    );
+    final room = await provider.createRoom(title: 'Ridiculous Math Room');
+    await provider.recordPurchase(
+      amountMinor: 900,
+      expression: '999999999 * (888888 + 7777) / 3 - 1',
+      result: '299999666370',
+      roomCode: room.code,
+      durationMs: 8200,
+    );
+    await provider.register(
+      username: 'Bob',
+      email: 'bob@rich.test',
+      password: 'pass',
+    );
+    await provider.recordPurchase(
+      amountMinor: 500,
+      expression: '2 + 2',
+      result: '4',
+      roomCode: room.code,
+      durationMs: 1100,
+    );
+    await provider.recordPurchase(
+      amountMinor: 500,
+      expression: '3 + 3',
+      result: '6',
+      roomCode: room.code,
+      durationMs: 1300,
+    );
+
+    await tester.pumpWidget(const RichCalculatorApp());
+    await _finishSplash(tester);
+
+    await tester.tap(find.text('Social'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.textContaining('Spend: Bob'), findsOneWidget);
+    expect(find.textContaining('Highest unlock: Ada'), findsOneWidget);
+    expect(find.textContaining('Most ridiculous: Ada'), findsOneWidget);
+    expect(find.textContaining('Fastest reveal: Bob'), findsOneWidget);
+  });
+
+  testWidgets('Profile shows receipt gallery and flex titles', (tester) async {
+    SharedPreferences.setMockInitialValues(_withConsent());
+    final provider = UserProvider();
+    await provider.init();
+    await provider.register(
+      username: 'Ada',
+      email: 'ada@rich.test',
+      password: 'pass',
+    );
+    await provider.recordPurchase(
+      amountMinor: 400,
+      expression: '17 * 3',
+      result: '51',
+    );
+
+    await tester.pumpWidget(const RichCalculatorApp());
+    await _finishSplash(tester);
+
+    await tester.tap(find.text('Profile'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('RECEIPT GALLERY'), findsOneWidget);
+    expect(
+        find.textContaining('I paid CHF 4.00 for this answer'), findsOneWidget);
+    expect(find.text('Rank #1'), findsOneWidget);
+    expect(find.text('Receipt Collector'), findsOneWidget);
+  });
+
+  testWidgets('Profile shows rare frame and animated receipt cards',
+      (tester) async {
+    SharedPreferences.setMockInitialValues(_withConsent());
+    final provider = UserProvider();
+    await provider.init();
+    await provider.register(
+      username: 'Ada',
+      email: 'ada@rich.test',
+      password: 'pass',
+    );
+    await provider.recordPurchase(
+      amountMinor: PaymentConfig.dailySpendLimitMinor,
+      expression: '999 * 999',
+      result: '998001',
+    );
+
+    await tester.pumpWidget(const RichCalculatorApp());
+    await _finishSplash(tester);
+
+    await tester.tap(find.text('Profile'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Diamond Frame'), findsWidgets);
+    expect(find.text('Rare'), findsOneWidget);
+    expect(find.byType(TweenAnimationBuilder<double>), findsWidgets);
+  });
+
+  testWidgets('Guest can calculate before sign-in and is gated only at reveal',
+      (tester) async {
+    SharedPreferences.setMockInitialValues(_withConsent());
+    await tester.pumpWidget(const RichCalculatorApp());
+    await _finishSplash(tester);
+
+    await tester.tap(find.text('1'));
+    await tester.tap(find.text('+'));
+    await tester.tap(find.text('1'));
+    await tester.tap(find.text('='));
+    await tester.pump();
+
+    expect(find.text('SIGN IN TO UNLOCK'), findsOneWidget);
+    expect(find.text('SIGN IN'), findsNothing);
+
+    await tester.tap(find.text('SIGN IN TO UNLOCK'));
     await tester.pumpAndSettle();
     expect(find.text('SIGN IN'), findsOneWidget);
   });
 
   testWidgets('Saved admin session routes to the admin interface',
       (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues(_withConsent());
     final provider = UserProvider();
     await provider.init();
     await provider.register(
@@ -332,8 +665,7 @@ void main() {
     );
 
     await tester.pumpWidget(const RichCalculatorApp());
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pumpAndSettle();
+    await _finishSplash(tester);
 
     expect(find.text('ADMIN'), findsOneWidget);
     expect(find.text('OVERVIEW'), findsOneWidget);
@@ -341,7 +673,7 @@ void main() {
   });
 
   testWidgets('Admin can search users and open user details', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues(_withConsent());
     final provider = UserProvider();
     await provider.init();
     await provider.register(
@@ -364,16 +696,15 @@ void main() {
     await provider.login(email: 'max.alberucci@gmail.com', password: 'pass');
 
     await tester.pumpWidget(const RichCalculatorApp());
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pumpAndSettle();
+    await _finishSplash(tester);
 
-    await tester.tap(find.text('USERS'));
+    await tester.tap(find.widgetWithText(Tab, 'USERS'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('admin-user-search')),
       'bob',
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Bob'), findsOneWidget);
     expect(find.text('Cara'), findsNothing);
@@ -386,4 +717,14 @@ void main() {
     expect(find.text('BAN USER'), findsOneWidget);
     expect(find.text('ACCOUNT STATS'), findsOneWidget);
   });
+}
+
+Map<String, Object> _withConsent([Map<String, Object> values = const {}]) => {
+      'legal_consent_version': LegalMeta.consentVersion,
+      ...values,
+    };
+
+Future<void> _finishSplash(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 2600));
+  await tester.pump(const Duration(milliseconds: 700));
 }

@@ -129,8 +129,8 @@ class _SortSelector extends StatelessWidget {
         onSelectionChanged: (set) => onChanged(set.first),
         style: ButtonStyle(
           textStyle: WidgetStatePropertyAll(
-            AppTheme.sans(const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600)),
+            AppTheme.sans(
+                const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ),
           foregroundColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.selected)
@@ -173,7 +173,8 @@ class _Podium extends StatelessWidget {
         children: [
           if (second != null)
             Expanded(
-              child: _PodiumBlock(user: second, rank: 2, height: 74, sort: sort),
+              child:
+                  _PodiumBlock(user: second, rank: 2, height: 74, sort: sort),
             )
           else
             const Expanded(child: SizedBox()),
@@ -326,107 +327,111 @@ class _RankTile extends StatelessWidget {
                 ? AppTheme.bronze
                 : AppTheme.textSecondary;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: isCurrentUser
-            ? AppTheme.gold.withValues(alpha: 0.08)
-            : AppTheme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isCurrentUser ? AppTheme.gold : AppTheme.divider,
-          width: isCurrentUser ? 1 : 0.5,
+    return Material(
+      color:
+          isCurrentUser ? AppTheme.gold.withValues(alpha: 0.08) : AppTheme.card,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isCurrentUser ? AppTheme.gold : AppTheme.divider,
+            width: isCurrentUser ? 1 : 0.5,
+          ),
         ),
-      ),
-      child: ListTile(
-        onTap: () => _openPublicProfile(
-          context,
-          user: user,
-          rank: rank,
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        leading: SizedBox(
-          width: 44,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+        child: ListTile(
+          onTap: () => _openPublicProfile(
+            context,
+            user: user,
+            rank: rank,
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          leading: SizedBox(
+            width: 44,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 26,
+                  child: Text(
+                    rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : '$rank',
+                    style: TextStyle(
+                      fontSize: rank <= 3 ? 20 : 14,
+                      color: medalColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          title: Row(
             children: [
-              SizedBox(
-                width: 26,
+              UserAvatar(
+                name: user.username,
+                imagePath: user.avatarPath,
+                size: 28,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
                 child: Text(
-                  rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : '$rank',
+                  user.username,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: rank <= 3 ? 20 : 14,
-                    color: medalColor,
+                    color: isCurrentUser ? AppTheme.gold : AppTheme.textPrimary,
+                    fontWeight:
+                        isCurrentUser ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+              if (isCurrentUser) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.goldDark.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'YOU',
+                    style: TextStyle(
+                      color: AppTheme.gold,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          subtitle: _RankSubtitle(user: user),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _metricValue(user, sort),
+                  style: const TextStyle(
+                    color: AppTheme.gold,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
-                  textAlign: TextAlign.center,
                 ),
+              ),
+              Text(
+                _metricLabel(sort),
+                style:
+                    const TextStyle(color: AppTheme.textSecondary, fontSize: 9),
               ),
             ],
           ),
-        ),
-        title: Row(
-          children: [
-            UserAvatar(
-              name: user.username,
-              imagePath: user.avatarPath,
-              size: 28,
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                user.username,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isCurrentUser ? AppTheme.gold : AppTheme.textPrimary,
-                  fontWeight:
-                      isCurrentUser ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ),
-            if (isCurrentUser) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.goldDark.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'YOU',
-                  style: TextStyle(
-                    color: AppTheme.gold,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-        subtitle: _RankSubtitle(user: user),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                _metricValue(user, sort),
-                style: const TextStyle(
-                  color: AppTheme.gold,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            Text(
-              _metricLabel(sort),
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 9),
-            ),
-          ],
         ),
       ),
     );
@@ -475,8 +480,7 @@ class _RankSubtitle extends StatelessWidget {
           ),
           Text(
             '  •  ${user.unlockedResultsCount} results',
-            style: const TextStyle(
-                color: AppTheme.textSecondary, fontSize: 11),
+            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
           ),
         ],
       ),

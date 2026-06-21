@@ -8,7 +8,6 @@ import '../widgets/luxury_background.dart';
 import 'admin_screen.dart';
 import 'home_shell.dart';
 import 'legal/consent_screen.dart';
-import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -55,7 +54,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     final Widget destination = provider.hasUser
         ? (provider.isAdmin ? const AdminScreen() : const HomeShell())
-        : const LoginScreen();
+        : const HomeShell();
 
     // Vor der Nutzung muss der aktuellen Datenschutz-/AGB-Fassung zugestimmt
     // werden; danach geht es zum eigentlichen Ziel weiter.

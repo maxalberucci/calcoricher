@@ -28,6 +28,15 @@ class PaymentConfig {
   /// Das erste Resultat kostet diesen Betrag, danach verdoppelt er sich.
   static const int basePriceMinor = 100;
 
+  /// Lokales Tageslimit in Minor-Units. Das Backend erzwingt denselben Schutz
+  /// global; dieser Wert schuetzt auch Sandbox- und Offline-Demos.
+  static const int dailySpendLimitMinor = 10000;
+
+  static const String satireDisclosure =
+      'This is satire. You are paying to reveal a calculated result for entertainment.';
+  static const String refundUrl = 'mailto:refunds@example.com';
+  static const String helpUrl = 'mailto:support@example.com';
+
   /// Preis für eine Änderung des Benutzernamens in Minor-Units.
   /// 100000 = 1000.00 (Eitelkeit ist teuer).
   static const int usernameChangePriceMinor = 100000;
